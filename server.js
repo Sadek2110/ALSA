@@ -1,0 +1,769 @@
+/* ============================================================
+   KIKOTO — server.js
+   Servidor Node.js + Express — base de datos JSON embebida
+   Sin MySQL ni XAMPP ni dependencias nativas.
+   Ejecutar: node server.js
+   ============================================================ */
+
+'use strict';
+
+const express = require('express');
+const session = require('express-session');
+const bcrypt  = require('bcryptjs');
+const multer  = require('multer');
+const path    = require('path');
+const fs      = require('fs');
+const crypto  = require('crypto');
+
+const nodemailer = require('nodemailer');
+
+const store = require('./store');
+
+// ============================================================
+// EMAIL — nodemailer + Gmail
+// ============================================================
+const mailer = nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
+});
+
+async function sendBookingEmail(booking) {
+  const b = booking;
+  const veh = (b.veh_marca && b.veh_modelo)
+    ? `${b.veh_marca} ${b.veh_modelo} — ${b.veh_largo}m × ${b.veh_ancho}m × ${b.veh_alto}m`
+    : 'Sin vehículo';
+  const pet = b.with_pet
+    ? `Sí (${b.pet_num || 1} mascota${b.pet_num > 1 ? 's' : ''}${b.pet_raza ? ' · ' + b.pet_raza : ''})`
+    : 'No';
+
+  const html = `
+<h2 style="color:#1a56db">Nueva reserva Kikoto #${b.id}</h2>
+<h3>Viaje</h3>
+<table>
+  <tr><td><b>Tipo</b></td><td>${b.trip_type}</td></tr>
+  <tr><td><b>Ruta</b></td><td>${b.departure_port} → ${b.destination_port}</td></tr>
+  <tr><td><b>Naviera</b></td><td>${b.naviera}</td></tr>
+  <tr><td><b>Salida</b></td><td>${b.departure_date} ${b.departure_time || ''}</td></tr>
+  ${b.return_date ? `<tr><td><b>Vuelta</b></td><td>${b.return_date} ${b.return_time || ''}</td></tr>` : ''}
+</table>
+<h3>Pasajero</h3>
+<table>
+  <tr><td><b>Nombre</b></td><td>${b.pax_nombre} ${b.pax_apellido1} ${b.pax_apellido2 || ''}</td></tr>
+  <tr><td><b>Email</b></td><td>${b.pax_email}</td></tr>
+  <tr><td><b>Teléfono</b></td><td>${b.pax_telefono || '—'}</td></tr>
+  <tr><td><b>F. Nacimiento</b></td><td>${b.pax_fnac || '—'}</td></tr>
+  <tr><td><b>Nacionalidad</b></td><td>${b.pax_nacionalidad || '—'}</td></tr>
+  <tr><td><b>Documento</b></td><td>${b.pax_tipo_doc} ${b.pax_num_doc} (exp. ${b.pax_exp_doc || '—'})</td></tr>
+</table>
+<h3>Vehículo</h3>
+<p>${veh}</p>
+<h3>Mascota</h3>
+<p>${pet}</p>
+<hr>
+<p style="color:#6b7280;font-size:12px">Reserva creada el ${b.created_at} — Estado: ${b.estado}</p>`;
+
+  await mailer.sendMail({
+    from: '"Kikoto Reservas" <sadekjoud@gmail.com>',
+    to:   'sadekjoud@gmail.com',
+    subject: `[Kikoto] Nueva reserva #${b.id} — ${b.departure_port} → ${b.destination_port}`,
+    html,
+  });
+}
+
+const app  = express();
+const PORT = process.env.PORT || 3000;
+
+// ============================================================
+// MIDDLEWARE GLOBAL
+// ============================================================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'kikoto-secret-2024-node',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 8 * 60 * 60 * 1000, httpOnly: true },
+}));
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ============================================================
+// MULTER — subida de archivos de facturas
+// ============================================================
+const UPLOAD_DIR    = path.join(__dirname, 'uploads', 'invoices');
+const UPLOAD_ALLOWED = ['application/pdf', 'image/jpeg', 'image/png'];
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    cb(null, UPLOAD_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `inv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    UPLOAD_ALLOWED.includes(file.mimetype)
+      ? cb(null, true)
+      : cb(new Error('Formato no permitido. Solo PDF, JPG o PNG.'));
+  },
+});
+
+// ============================================================
+// HELPERS
+// ============================================================
+const DEMO_EMAIL    = 'admin@kikoto.com';
+const DEMO_PASSWORD = 'Admin123';
+
+function requireAuth(req, res, next) {
+  if (!req.session.adminId) return res.status(401).json({ error: 'No autenticado.' });
+  next();
+}
+
+// La API devuelve los datos directamente (igual que la versión PHP)
+function ok(res, data, status = 200) {
+  res.status(status).json(data);
+}
+
+function fail(res, message, status = 400) {
+  res.status(status).json({ error: message });
+}
+
+function logAction(type, entity, entityId, desc, adminId) {
+  try {
+    store.insert('admin_actions', {
+      admin_id: adminId || null, action_type: type,
+      entity_type: entity, entity_id: entityId,
+      description: desc, ip_address: null,
+    });
+  } catch (_) {}
+}
+
+function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ''); }
+function isValidDni(v)   { return /^[0-9]{8}[A-Za-z]$/.test(v || ''); }
+function isValidDate(v)  { return /^\d{4}-\d{2}-\d{2}$/.test(v || ''); }
+function isValidLoc(v)   { return /^[A-Z0-9]{1,10}$/.test(v || ''); }
+
+// ============================================================
+// AUTH — /api/auth/*
+// ============================================================
+app.post('/api/auth/login', (req, res) => {
+  const email    = (req.body.email    || '').toLowerCase().trim();
+  const password = (req.body.password || '');
+
+  if (!email || !password) return fail(res, 'Email y contraseña son obligatorios.');
+  if (!isValidEmail(email)) return fail(res, 'Formato de email incorrecto.');
+
+  // Modo demo
+  if (email === DEMO_EMAIL.toLowerCase() && password === DEMO_PASSWORD) {
+    req.session.adminId   = 1;
+    req.session.adminName = 'Admin Principal';
+    req.session.email     = DEMO_EMAIL;
+    return ok(res, { id:1, nombre:'Admin Principal', email:DEMO_EMAIL, usuario:'admin', role:'super_admin' });
+  }
+
+  // Usuarios reales
+  const user = store.find('users', u => u.email.toLowerCase() === email && u.is_active);
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    return fail(res, 'Credenciales incorrectas.', 401);
+  }
+
+  const admin = store.find('administrators', a => a.user_id === user.id && a.is_active);
+  req.session.adminId   = admin ? admin.id : user.id;
+  req.session.adminName = user.nombre;
+  req.session.email     = user.email;
+
+  if (admin) {
+    store.update('administrators', a => a.id === admin.id, { last_login: store.now() });
+  }
+  logAction('LOGIN', 'users', user.id, 'Inicio de sesión exitoso', req.session.adminId);
+
+  return ok(res, {
+    id:      admin ? admin.id : user.id,
+    nombre:  user.nombre,
+    email:   user.email,
+    usuario: admin ? admin.username : 'admin',
+    role:    user.role,
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy();
+  ok(res, { message: 'Sesión cerrada.' });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  if (!req.session.adminId) return fail(res, 'No autenticado.', 401);
+  ok(res, { id: req.session.adminId, nombre: req.session.adminName || 'Admin', email: req.session.email || '' });
+});
+
+// ============================================================
+// BOOKINGS — /api/bookings
+// ============================================================
+function bookingToJson(r) {
+  return {
+    id:            r.id,
+    tripType:      r.trip_type,
+    origin:        r.departure_port,
+    destination:   r.destination_port,
+    naviera:       r.naviera,
+    departureDate: r.departure_date,
+    departureTime: r.departure_time || '',
+    returnDate:    r.return_date,
+    returnTime:    r.return_time,
+    localizador:   r.localizador || '',
+    estado:        r.estado,
+    passengerName: ((r.pax_nombre || '') + ' ' + (r.pax_apellido1 || '')).trim(),
+    email:         r.pax_email || '',
+    vehiclePlate:  (r.veh_marca && r.veh_modelo) ? `${r.veh_marca} ${r.veh_modelo}` : null,
+    createdAt:     (r.created_at || '').slice(0, 10),
+    passengerData: {
+      nombre:       r.pax_nombre       || '',
+      apellido1:    r.pax_apellido1    || '',
+      apellido2:    r.pax_apellido2    || '',
+      email:        r.pax_email        || '',
+      telefono:     r.pax_telefono     || '',
+      fnac:         r.pax_fnac         || '',
+      nacionalidad: r.pax_nacionalidad || '',
+      tipoDoc:      r.pax_tipo_doc     || '',
+      numDoc:       r.pax_num_doc      || '',
+      expDoc:       r.pax_exp_doc      || '',
+    },
+    vehicleData: r.veh_marca ? {
+      marca:r.veh_marca, modelo:r.veh_modelo,
+      ancho:parseFloat(r.veh_ancho)||0, largo:parseFloat(r.veh_largo)||0, alto:parseFloat(r.veh_alto)||0,
+    } : null,
+    petDetails: r.with_pet ? { num:r.pet_num, raza:r.pet_raza } : null,
+  };
+}
+
+app.get('/api/bookings', requireAuth, (_req, res) => {
+  const rows = store.all('bookings').sort((a, b) => b.id - a.id);
+  ok(res, rows.map(bookingToJson));
+});
+
+app.post('/api/bookings', requireAuth, (req, res) => {
+  const b = req.body;
+  const errors = [];
+
+  if (!b.tripType)                 errors.push('tripType requerido');
+  if (!b.origin)                   errors.push('origin requerido');
+  if (!b.destination)              errors.push('destination requerido');
+  if (!b.naviera)                  errors.push('naviera requerido');
+  if (!b.departureDate)            errors.push('departureDate requerido');
+  if (!b.passengerData?.nombre)    errors.push('Nombre del pasajero requerido');
+  if (!b.passengerData?.apellido1) errors.push('Apellido del pasajero requerido');
+  if (!b.passengerData?.email)     errors.push('Email del pasajero requerido');
+  if (!['ida','vuelta','idayvuelta'].includes(b.tripType || '')) errors.push('tripType inválido');
+  if (b.passengerData?.email && !isValidEmail(b.passengerData.email)) errors.push('Email del pasajero inválido');
+  if (b.origin && b.destination && b.origin.toLowerCase() === b.destination.toLowerCase()) {
+    errors.push('El origen y el destino no pueden ser el mismo puerto');
+  }
+  if (errors.length) return fail(res, errors.join('; '));
+
+  const pax = b.passengerData || {};
+  const veh = b.vehicleData   || null;
+  const pet = b.petDetails    || null;
+
+  const row = store.insert('bookings', {
+    trip_type: b.tripType, departure_port: b.origin, destination_port: b.destination,
+    naviera: b.naviera, departure_date: b.departureDate, departure_time: b.departureTime || null,
+    return_date: b.returnDate || null, return_time: b.returnTime || null,
+    estado: 'Pendiente', localizador: null,
+    pax_nombre: pax.nombre || '', pax_apellido1: pax.apellido1 || '', pax_apellido2: pax.apellido2 || null,
+    pax_email: pax.email || '', pax_telefono: pax.telefono || null, pax_fnac: pax.fnac || null,
+    pax_nacionalidad: pax.nacionalidad || null, pax_tipo_doc: pax.tipoDoc || null,
+    pax_num_doc: (pax.numDoc || '').toUpperCase() || null, pax_exp_doc: pax.expDoc || null,
+    veh_marca: veh ? veh.marca : null, veh_modelo: veh ? veh.modelo : null,
+    veh_ancho: veh ? parseFloat(veh.ancho) : null, veh_largo: veh ? parseFloat(veh.largo) : null, veh_alto: veh ? parseFloat(veh.alto) : null,
+    with_pet: pet ? 1 : 0, pet_num: pet ? (pet.num || null) : null, pet_raza: pet ? (pet.raza || null) : null,
+    notification_email: 'admin@kikoto.com', created_by: req.session.adminId,
+  });
+
+  logAction('BOOKING_CREATE', 'bookings', row.id, `Reserva ${b.origin} → ${b.destination}, ${b.naviera}`, req.session.adminId);
+  sendBookingEmail(row).catch(err => console.error('[EMAIL] Error al enviar:', err.message));
+  ok(res, bookingToJson(row), 201);
+});
+
+app.patch('/api/bookings/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const b  = req.body;
+
+  if (Object.prototype.hasOwnProperty.call(b, 'localizador')) {
+    const loc = (b.localizador || '').toUpperCase().trim();
+    if (loc && !isValidLoc(loc)) return fail(res, 'Formato de localizador inválido (solo A-Z y 0-9, hasta 10 caracteres).');
+    const estado = loc ? 'Confirmado' : 'Pendiente';
+    const n = store.update('bookings', r => r.id === id, { localizador: loc || null, estado });
+    if (!n) return fail(res, 'Reserva no encontrada.', 404);
+    logAction('BOOKING_LOCALIZADOR', 'bookings', id, `Localizador actualizado: ${loc}`, req.session.adminId);
+  }
+
+  if (b.estado !== undefined) {
+    if (!['Pendiente','Confirmado','Cancelado'].includes(b.estado)) return fail(res, 'Estado inválido.');
+    store.update('bookings', r => r.id === id, { estado: b.estado });
+  }
+
+  const row = store.find('bookings', r => r.id === id);
+  if (!row) return fail(res, 'Reserva no encontrada.', 404);
+  ok(res, bookingToJson(row));
+});
+
+app.delete('/api/bookings/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const n  = store.remove('bookings', r => r.id === id);
+  if (!n) return fail(res, 'Reserva no encontrada.', 404);
+  logAction('DELETE', 'bookings', id, `Reserva #${id} eliminada`, req.session.adminId);
+  ok(res, { message: 'Reserva eliminada.' });
+});
+
+// ============================================================
+// MEMBERS — /api/members
+// ============================================================
+function memberToJson(r) {
+  return {
+    id: r.id, nombre: r.nombre,
+    apellido: ((r.apellido1||'') + ' ' + (r.apellido2||'')).trim(),
+    apellido1: r.apellido1||'', apellido2: r.apellido2||'',
+    dni: r.dni, tipoDoc: r.tipo_doc, numDoc: r.num_doc, expDoc: r.exp_doc,
+    email: r.email||'', telefonoPrefix: r.telefono_prefix||'',
+    telefono: ((r.telefono_prefix||'') + ' ' + (r.telefono||'')).trim(),
+    fechaNacimiento: r.fecha_nacimiento, fechaExpiracion: r.fecha_expiracion, nacionalidad: r.nacionalidad||'',
+  };
+}
+
+app.get('/api/members', requireAuth, (_req, res) => {
+  ok(res, store.all('members').sort((a,b) => a.id - b.id).map(memberToJson));
+});
+
+app.post('/api/members', requireAuth, (req, res) => {
+  const b    = req.body;
+  const nombre = (b.nombre||'').trim();
+  const ape1   = (b.apellido1||b.apellido||'').trim();
+  const ape2   = (b.apellido2||'').trim();
+  const dni    = (b.dni||'').toUpperCase().trim();
+  const pre    = (b.telefonoPrefix||b.prefijo||'+34').trim();
+  const tel    = (b.telefono||'').trim();
+  const fnac   = (b.fechaNacimiento||'').trim();
+  const fexp   = (b.fechaExpiracion||'').trim();
+  const nac    = (b.nacionalidad||'ES').trim();
+  const email  = (b.email||'').trim();
+  const tipDoc = (b.tipoDoc||'DNI').trim();
+  const numDoc = (b.numDoc||dni).toUpperCase().trim();
+  const expDoc = (b.expDoc||fexp).trim();
+
+  const errors = [];
+  if (!nombre)           errors.push('Nombre obligatorio');
+  if (!ape1)             errors.push('Apellido obligatorio');
+  if (!isValidDni(dni))  errors.push('DNI inválido (8 dígitos + letra)');
+  if (!isValidDate(fnac)) errors.push('Fecha de nacimiento inválida');
+  if (fexp && !isValidDate(fexp)) errors.push('Fecha de expiración inválida');
+  if (fexp && fexp <= fnac) errors.push('La expiración debe ser posterior al nacimiento');
+  if (email && !isValidEmail(email)) errors.push('Email inválido');
+  if (errors.length) return fail(res, errors.join('; '));
+
+  // Comprobar duplicados
+  if (store.find('members', m => m.dni === dni)) return fail(res, 'Ya existe un miembro con ese DNI/documento.', 409);
+  if (numDoc !== dni && store.find('members', m => m.num_doc === numDoc)) return fail(res, 'Ya existe un miembro con ese DNI/documento.', 409);
+
+  const telNum = tel.replace(/^(\+\d{1,4})\s*/, '').trim();
+  const row = store.insert('members', {
+    nombre, apellido1: ape1, apellido2: ape2||null, dni, tipo_doc: tipDoc, num_doc: numDoc, exp_doc: expDoc||null,
+    email: email||null, telefono_prefix: pre, telefono: telNum||tel,
+    fecha_nacimiento: fnac, fecha_expiracion: fexp||null, nacionalidad: nac,
+  });
+  logAction('CREATE', 'members', row.id, `Alta miembro: ${nombre} ${ape1}`, req.session.adminId);
+  ok(res, memberToJson(row), 201);
+});
+
+app.delete('/api/members/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const n  = store.remove('members', r => r.id === id);
+  if (!n) return fail(res, 'Miembro no encontrado.', 404);
+  logAction('DELETE', 'members', id, `Miembro #${id} eliminado`, req.session.adminId);
+  ok(res, { message: 'Miembro eliminado.' });
+});
+
+// ============================================================
+// VEHICLES — /api/vehicles
+// ============================================================
+function vehicleToJson(r) {
+  return { id:r.id, marca:r.marca, modelo:r.modelo, ancho:parseFloat(r.ancho)||0, largo:parseFloat(r.largo)||0, alto:parseFloat(r.alto)||0 };
+}
+
+app.get('/api/vehicles', requireAuth, (_req, res) => {
+  ok(res, store.all('vehicles', v => v.is_active).sort((a,b) => a.id - b.id).map(vehicleToJson));
+});
+
+app.post('/api/vehicles', requireAuth, (req, res) => {
+  const mar = (req.body.marca ||'').trim();
+  const mod = (req.body.modelo||'').trim();
+  const anc = parseFloat(req.body.ancho)||0;
+  const lar = parseFloat(req.body.largo)||0;
+  const alt = parseFloat(req.body.alto) ||0;
+
+  const errors = [];
+  if (!mar)    errors.push('Marca obligatoria');
+  if (!mod)    errors.push('Modelo obligatorio');
+  if (anc <= 0) errors.push('Ancho debe ser mayor que 0');
+  if (lar <= 0) errors.push('Largo debe ser mayor que 0');
+  if (alt <= 0) errors.push('Alto debe ser mayor que 0');
+  if (errors.length) return fail(res, errors.join('; '));
+
+  const row = store.insert('vehicles', { marca:mar, modelo:mod, ancho:anc, largo:lar, alto:alt, is_active:1 });
+  logAction('CREATE', 'vehicles', row.id, `Alta vehículo: ${mar} ${mod}`, req.session.adminId);
+  ok(res, vehicleToJson(row), 201);
+});
+
+app.delete('/api/vehicles/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const n  = store.update('vehicles', v => v.id === id, { is_active: 0 });
+  if (!n) return fail(res, 'Vehículo no encontrado.', 404);
+  logAction('DELETE', 'vehicles', id, `Vehículo #${id} desactivado`, req.session.adminId);
+  ok(res, { message: 'Vehículo eliminado.' });
+});
+
+// ============================================================
+// INVOICES — /api/invoices
+// ============================================================
+function invoiceToJson(r) {
+  return { id:r.id, numero:r.invoice_number, fecha:r.fecha, importe:parseFloat(r.importe)||0, estado:r.estado, archivo:r.archivo_nombre };
+}
+
+app.get('/api/invoices', requireAuth, (_req, res) => {
+  const rows = store.all('invoices').sort((a,b) => {
+    if (b.fecha !== a.fecha) return b.fecha.localeCompare(a.fecha);
+    return b.id - a.id;
+  });
+  ok(res, rows.map(invoiceToJson));
+});
+
+app.post('/api/invoices', requireAuth, upload.single('archivo'), (req, res) => {
+  const num = (req.body.numero ||'').trim();
+  const fec = (req.body.fecha  ||'').trim();
+  const imp = parseFloat(req.body.importe)||0;
+  const est = (req.body.estado ||'Pendiente').trim();
+
+  const errors = [];
+  if (!num)                      errors.push('Número de factura obligatorio');
+  if (!fec || !isValidDate(fec)) errors.push('Fecha inválida');
+  if (!imp || imp <= 0)          errors.push('Importe debe ser mayor que 0');
+  if (!['Pendiente','Pagada','Vencida'].includes(est)) errors.push('Estado inválido');
+
+  if (errors.length) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return fail(res, errors.join('; '));
+  }
+
+  // Comprobar duplicado de número
+  if (store.find('invoices', i => i.invoice_number === num)) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return fail(res, 'Ya existe una factura con ese número.', 409);
+  }
+
+  let archivoNombre = null, archivoMime = null, archivoSize = null;
+  if (req.file) {
+    archivoNombre = req.file.filename;
+    archivoMime   = req.file.mimetype;
+    archivoSize   = req.file.size;
+  } else if (req.body.archivo) {
+    archivoNombre = req.body.archivo.trim();
+  }
+
+  const row = store.insert('invoices', {
+    invoice_number: num, fecha: fec, importe: imp, estado: est,
+    archivo_nombre: archivoNombre, archivo_mime: archivoMime, archivo_tamanio: archivoSize,
+    booking_id: null, trip_id: null, created_by: req.session.adminId,
+  });
+  logAction('CREATE', 'invoices', row.id, `Factura ${num} — €${imp}`, req.session.adminId);
+  ok(res, invoiceToJson(row), 201);
+});
+
+app.delete('/api/invoices/:id', requireAuth, (req, res) => {
+  const id  = parseInt(req.params.id);
+  const row = store.find('invoices', i => i.id === id);
+  if (!row) return fail(res, 'Factura no encontrada.', 404);
+
+  if (row.archivo_nombre) {
+    const filePath = path.join(UPLOAD_DIR, path.basename(row.archivo_nombre));
+    if (fs.existsSync(filePath)) fs.unlink(filePath, () => {});
+  }
+
+  store.remove('invoices', i => i.id === id);
+  logAction('DELETE', 'invoices', id, `Factura #${id} eliminada`, req.session.adminId);
+  ok(res, { message: 'Factura eliminada.' });
+});
+
+// ============================================================
+// ADMINS — /api/admins
+// ============================================================
+function adminToJson(r) {
+  return {
+    id: r.id, nombre: r.nombre, email: r.email, usuario: r.username,
+    activo: r.is_active === 1 || r.is_active === true,
+    fecha: (r.created_at || '').slice(0, 10),
+    acciones: r._lastAction || 'Sin actividad',
+  };
+}
+
+app.get('/api/admins', requireAuth, (_req, res) => {
+  const admins  = store.all('administrators').sort((a,b) => a.id - b.id);
+  const actions = store.all('admin_actions');
+  const result  = admins.map(a => {
+    const lastAct = actions.filter(x => x.admin_id === a.id).sort((x,y) => y.id - x.id)[0];
+    return { ...a, _lastAction: lastAct ? lastAct.description : 'Sin actividad' };
+  });
+  ok(res, result.map(adminToJson));
+});
+
+app.post('/api/admins', requireAuth, (req, res) => {
+  const email   = (req.body.email  ||'').toLowerCase().trim();
+  const usuario = (req.body.usuario||req.body.username||'').trim();
+
+  if (!isValidEmail(email)) return fail(res, 'Email inválido.');
+  if (usuario.length < 3)   return fail(res, 'El nombre de usuario debe tener al menos 3 caracteres.');
+  if (store.find('administrators', a => a.email.toLowerCase() === email)) {
+    return fail(res, `Ya existe un administrador con el email ${email}.`, 409);
+  }
+
+  const token     = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const nombre    = usuario.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+
+  const row = store.insert('administrators', {
+    user_id: null, username: usuario, nombre, email, is_active: 0,
+    invitation_token: tokenHash, invitation_sent_at: store.now(),
+    activated_at: null, last_login: null,
+  });
+  logAction('INVITE', 'administrators', row.id, `Invitación enviada a ${email}`, req.session.adminId);
+  console.log(`[EMAIL SIMULADO] Para: ${email} | Token: ${token} | Admin: ${nombre}`);
+  ok(res, { ...adminToJson({ ...row, _lastAction: 'Sin actividad' }), invitationToken: token }, 201);
+});
+
+app.patch('/api/admins/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const b  = req.body;
+
+  if (Object.prototype.hasOwnProperty.call(b, 'activo')) {
+    store.update('administrators', a => a.id === id, { is_active: b.activo ? 1 : 0 });
+  }
+
+  if (b.password !== undefined && b.token !== undefined) {
+    if ((b.password || '').length < 8) return fail(res, 'La contraseña debe tener al menos 8 caracteres.');
+
+    const admin = store.find('administrators', a => a.id === id);
+    if (!admin) return fail(res, 'Administrador no encontrado.', 404);
+
+    const tokenHash = crypto.createHash('sha256').update(b.token).digest('hex');
+    if (!admin.invitation_token || admin.invitation_token !== tokenHash) {
+      return fail(res, 'Token de activación inválido.', 403);
+    }
+
+    const hash = bcrypt.hashSync(b.password, 10);
+    let existingUser = store.find('users', u => u.email.toLowerCase() === admin.email.toLowerCase());
+    let userId;
+    if (existingUser) {
+      store.update('users', u => u.id === existingUser.id, { password_hash: hash, nombre: admin.nombre });
+      userId = existingUser.id;
+    } else {
+      const u = store.insert('users', { email: admin.email, password_hash: hash, nombre: admin.nombre, role: 'admin', is_active: 1 });
+      userId = u.id;
+    }
+    store.update('administrators', a => a.id === id, {
+      is_active: 1, user_id: userId, invitation_token: null, activated_at: store.now(),
+    });
+    logAction('ACTIVATE', 'administrators', id, `Cuenta activada: ${admin.email}`, req.session.adminId);
+  }
+
+  const row = store.find('administrators', a => a.id === id);
+  if (!row) return fail(res, 'Administrador no encontrado.', 404);
+  const lastAct = store.all('admin_actions', x => x.admin_id === id).sort((a,b) => b.id - a.id)[0];
+  ok(res, adminToJson({ ...row, _lastAction: lastAct ? lastAct.description : 'Sin actividad' }));
+});
+
+app.delete('/api/admins/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (id === 1) return fail(res, 'No se puede eliminar al administrador principal.', 403);
+  const n = store.remove('administrators', a => a.id === id);
+  if (!n) return fail(res, 'Administrador no encontrado.', 404);
+  logAction('DELETE', 'administrators', id, `Admin #${id} eliminado`, req.session.adminId);
+  ok(res, { message: 'Administrador eliminado.' });
+});
+
+// ============================================================
+// FREQUENT PASSENGERS — /api/frequent-passengers
+// ============================================================
+function fpToJson(r) {
+  return {
+    id: r.id, nombre: r.nombre, apellido1: r.apellido1, apellido2: r.apellido2||'',
+    email: r.email, telefono: ((r.telefono_prefix||'') + ' ' + (r.telefono||'')).trim(),
+    fnac: r.fnac, nacionalidad: r.nacionalidad||'', tipoDoc: r.tipo_doc||'', numDoc: r.num_doc, expDoc: r.exp_doc,
+  };
+}
+
+app.get('/api/frequent-passengers', requireAuth, (_req, res) => {
+  ok(res, store.all('frequent_passengers').sort((a,b) => a.nombre.localeCompare(b.nombre)).map(fpToJson));
+});
+
+app.post('/api/frequent-passengers', requireAuth, (req, res) => {
+  const b      = req.body;
+  const nombre = (b.nombre     ||'').trim();
+  const ape1   = (b.apellido1  ||'').trim();
+  const ape2   = (b.apellido2  ||'').trim();
+  const email  = (b.email      ||'').trim();
+  const tel    = (b.telefono   ||'').trim();
+  const fnac   = (b.fnac       ||'').trim();
+  const nac    = (b.nacionalidad||'').trim();
+  const tipDoc = (b.tipoDoc    ||'').trim();
+  const numDoc = (b.numDoc     ||'').toUpperCase().trim();
+  const expDoc = (b.expDoc     ||'').trim();
+
+  if (!nombre || !ape1 || !numDoc) return fail(res, 'Nombre, apellido y número de documento son obligatorios.');
+  if (!isValidEmail(email)) return fail(res, 'Email inválido.');
+  if (store.find('frequent_passengers', p => p.num_doc === numDoc)) {
+    return fail(res, `Ya existe un pasajero frecuente con ese documento (${numDoc}).`, 409);
+  }
+
+  let pre = '+34', telNum = tel;
+  const m = tel.match(/^(\+\d{1,4})\s*(.*)$/);
+  if (m) { pre = m[1]; telNum = m[2]; }
+
+  const row = store.insert('frequent_passengers', {
+    nombre, apellido1:ape1, apellido2:ape2||null, email,
+    telefono_prefix:pre, telefono:telNum, fnac:fnac||null,
+    nacionalidad:nac, tipo_doc:tipDoc, num_doc:numDoc, exp_doc:expDoc||null,
+  });
+  ok(res, fpToJson(row), 201);
+});
+
+app.delete('/api/frequent-passengers/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const n  = store.remove('frequent_passengers', p => p.id === id);
+  if (!n) return fail(res, 'Pasajero frecuente no encontrado.', 404);
+  ok(res, { message: 'Pasajero frecuente eliminado.' });
+});
+
+// ============================================================
+// ROUTES / SAILINGS / TIMETABLES
+// ============================================================
+function demoRoutes() {
+  return [
+    { id:1,  name:'Algeciras - Ceuta',         departure_port:{id:10,name:'Algeciras'},  destination_port:{id:11,name:'Ceuta'         } },
+    { id:2,  name:'Algeciras - Tánger Med',    departure_port:{id:10,name:'Algeciras'},  destination_port:{id:12,name:'Tánger Med'    } },
+    { id:3,  name:'Algeciras - Tánger Ciudad', departure_port:{id:10,name:'Algeciras'},  destination_port:{id:13,name:'Tánger Ciudad' } },
+    { id:4,  name:'Tarifa - Tánger Ciudad',    departure_port:{id:14,name:'Tarifa'   },  destination_port:{id:13,name:'Tánger Ciudad' } },
+    { id:5,  name:'Ceuta - Algeciras',         departure_port:{id:11,name:'Ceuta'    },  destination_port:{id:10,name:'Algeciras'     } },
+    { id:6,  name:'Málaga - Melilla',          departure_port:{id:30,name:'Málaga'   },  destination_port:{id:31,name:'Melilla'       } },
+    { id:7,  name:'Almería - Melilla',         departure_port:{id:32,name:'Almería'  },  destination_port:{id:31,name:'Melilla'       } },
+    { id:8,  name:'Almería - Nador',           departure_port:{id:32,name:'Almería'  },  destination_port:{id:33,name:'Nador'         } },
+    { id:9,  name:'Almería - Ghazaouet',       departure_port:{id:32,name:'Almería'  },  destination_port:{id:34,name:'Ghazaouet'     } },
+    { id:10, name:'Motril - Melilla',          departure_port:{id:35,name:'Motril'   },  destination_port:{id:31,name:'Melilla'       } },
+    { id:11, name:'Cartagena - Orán',          departure_port:{id:36,name:'Cartagena'},  destination_port:{id:37,name:'Orán'          } },
+    { id:12, name:'Barcelona - Palma',         departure_port:{id:20,name:'Barcelona'},  destination_port:{id:21,name:'Palma'         } },
+    { id:13, name:'Barcelona - Ibiza',         departure_port:{id:20,name:'Barcelona'},  destination_port:{id:23,name:'Ibiza'         } },
+    { id:14, name:'Barcelona - Mahón',         departure_port:{id:20,name:'Barcelona'},  destination_port:{id:24,name:'Mahón'         } },
+    { id:15, name:'Valencia - Palma',          departure_port:{id:22,name:'Valencia' },  destination_port:{id:21,name:'Palma'         } },
+    { id:16, name:'Valencia - Ibiza',          departure_port:{id:22,name:'Valencia' },  destination_port:{id:23,name:'Ibiza'         } },
+    { id:17, name:'Valencia - Mahón',          departure_port:{id:22,name:'Valencia' },  destination_port:{id:24,name:'Mahón'         } },
+    { id:18, name:'Denia - Ibiza',             departure_port:{id:25,name:'Denia'    },  destination_port:{id:23,name:'Ibiza'         } },
+    { id:19, name:'Denia - Formentera',        departure_port:{id:25,name:'Denia'    },  destination_port:{id:26,name:'Formentera'    } },
+    { id:20, name:'Palma - Ibiza',             departure_port:{id:21,name:'Palma'    },  destination_port:{id:23,name:'Ibiza'         } },
+    { id:21, name:'Ibiza - Formentera',        departure_port:{id:23,name:'Ibiza'    },  destination_port:{id:26,name:'Formentera'    } },
+    { id:22, name:'Barcelona - Génova',        departure_port:{id:20,name:'Barcelona'},  destination_port:{id:40,name:'Génova'        } },
+    { id:23, name:'Barcelona - Civitavecchia', departure_port:{id:20,name:'Barcelona'},  destination_port:{id:41,name:'Civitavecchia' } },
+    { id:24, name:'Barcelona - Palermo',       departure_port:{id:20,name:'Barcelona'},  destination_port:{id:42,name:'Palermo'       } },
+    { id:25, name:'Valencia - Génova',         departure_port:{id:22,name:'Valencia' },  destination_port:{id:40,name:'Génova'        } },
+  ];
+}
+
+function demoSailings(date) {
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  const today   = new Date().toISOString().slice(0, 10);
+  const isToday = date === today;
+  const all = [
+    { naviera:'Balearia',            departureDate:date, departureTime:'07:30' },
+    { naviera:'Trasmediterránea',    departureDate:date, departureTime:'10:00' },
+    { naviera:'FRS',                 departureDate:date, departureTime:'12:15' },
+    { naviera:'Armas Trasatlántica', departureDate:date, departureTime:'14:45' },
+    { naviera:'GNV',                 departureDate:date, departureTime:'17:30' },
+  ];
+  return isToday ? all.filter(s => s.departureTime > nowTime) : all;
+}
+
+let routesCache = null, routesCacheTime = 0;
+
+app.get('/api/routes', requireAuth, (_req, res) => {
+  if (routesCache && Date.now() - routesCacheTime < 300000) return ok(res, routesCache);
+  routesCache     = demoRoutes();
+  routesCacheTime = Date.now();
+  ok(res, routesCache);
+});
+
+app.post('/api/sailings', requireAuth, (req, res) => {
+  const { departure_port_id, destination_port_id, date } = req.body;
+  if (!departure_port_id || !destination_port_id || !date) return fail(res, 'departure_port_id, destination_port_id y date son obligatorios.');
+  if (!isValidDate(date)) return fail(res, 'Formato de fecha inválido (YYYY-MM-DD).');
+  if (departure_port_id === destination_port_id) return fail(res, 'El origen y el destino no pueden ser el mismo puerto.');
+  ok(res, demoSailings(date));
+});
+
+app.post('/api/timetables', requireAuth, (req, res) => {
+  const { departure_port_id, destination_port_id, date } = req.body;
+  if (!departure_port_id || !destination_port_id || !date) return fail(res, 'departure_port_id, destination_port_id y date son obligatorios.');
+  if (!isValidDate(date)) return fail(res, 'Formato de fecha inválido (YYYY-MM-DD).');
+  if (departure_port_id === destination_port_id) return fail(res, 'El origen y el destino no pueden ser el mismo puerto.');
+  ok(res, demoSailings(date));
+});
+
+// ============================================================
+// TEST EMAIL
+// ============================================================
+app.get('/api/test-email', requireAuth, async (_req, res) => {
+  try {
+    await mailer.verify();
+    await mailer.sendMail({
+      from: '"Kikoto Reservas" <sadekjoud@gmail.com>',
+      to:   'sadekjoud@gmail.com',
+      subject: '[Kikoto] Email de prueba',
+      text: 'Conexión SMTP funcionando correctamente.',
+    });
+    ok(res, { message: 'Email enviado correctamente.' });
+  } catch (err) {
+    console.error('[EMAIL TEST]', err);
+    fail(res, 'Error al enviar email: ' + err.message, 500);
+  }
+});
+
+// ============================================================
+// ERROR HANDLER — multer y genérico
+// ============================================================
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') return fail(res, 'El archivo supera el tamaño máximo de 10 MB.');
+    return fail(res, 'Error al subir el archivo: ' + err.message);
+  }
+  if (err) return fail(res, err.message || 'Error interno.', 500);
+});
+
+// ============================================================
+// ARRANCAR SERVIDOR
+// ============================================================
+store.load(); // inicializa la BD en el arranque
+
+app.listen(PORT, () => {
+  console.log(`\n  ╔══════════════════════════════════════════╗`);
+  console.log(`  ║   KIKOTO — Gestión de Agencias           ║`);
+  console.log(`  ║   Node.js + Express + JSON Store         ║`);
+  console.log(`  ╠══════════════════════════════════════════╣`);
+  console.log(`  ║   http://localhost:${PORT}                   ║`);
+  console.log(`  ║                                          ║`);
+  console.log(`  ║   Demo: admin@kikoto.com / Admin123      ║`);
+  console.log(`  ╚══════════════════════════════════════════╝\n`);
+});
