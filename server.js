@@ -92,7 +92,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ============================================================
 // MULTER — subida de archivos de facturas
 // ============================================================
-const UPLOAD_DIR    = path.join(process.env.DATA_DIR || __dirname, 'kikoto.json');
+const UPLOAD_DIR = path.join(process.env.DATA_DIR || __dirname, 'uploads', 'invoices');
 const UPLOAD_ALLOWED = ['application/pdf', 'image/jpeg', 'image/png'];
 
 const storage = multer.diskStorage({

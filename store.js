@@ -10,7 +10,9 @@ const fs   = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const FILE = path.join(process.env.DATA_DIR || __dirname, 'kikoto.json');
+const DATA = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(DATA)) fs.mkdirSync(DATA, { recursive: true });
+const FILE = path.join(DATA, 'kikoto.json');
 
 let _db = null;
 
