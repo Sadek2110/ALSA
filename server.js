@@ -7,6 +7,12 @@
 
 'use strict';
 
+process.on('uncaughtException', (err) => {
+  console.error('FATAL ERROR:', err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+
 const express = require('express');
 const session = require('express-session');
 const bcrypt  = require('bcryptjs');
