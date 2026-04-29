@@ -10,7 +10,7 @@ const fs   = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const FILE = path.join(__dirname, 'kikoto.json');
+const FILE = path.join(process.env.DATA_DIR || __dirname, 'kikoto.json');
 
 let _db = null;
 
