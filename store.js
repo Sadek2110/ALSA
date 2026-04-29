@@ -114,10 +114,10 @@ function seed() {
       { id:3, nombre:'Ana',    apellido1:'Rodríguez', apellido2:null,    dni:'11223344C', tipo_doc:'DNI', num_doc:'11223344C', exp_doc:'2026-03-08', email:'ana@ejemplo.com',    telefono_prefix:'+34', telefono:'655111222', fecha_nacimiento:'1978-11-08', fecha_expiracion:'2026-03-08', nacionalidad:'ES', created_at:now(), updated_at:now() },
     ],
     vehicles: [
-      { id:1, marca:'Mercedes',   modelo:'Sprinter', ancho:2.10, largo:5.90, alto:2.80, is_active:1, created_at:now(), updated_at:now() },
-      { id:2, marca:'Volkswagen', modelo:'Crafter',  ancho:2.05, largo:5.40, alto:2.60, is_active:1, created_at:now(), updated_at:now() },
-      { id:3, marca:'Ford',       modelo:'Transit',  ancho:2.00, largo:5.50, alto:2.55, is_active:1, created_at:now(), updated_at:now() },
-      { id:4, marca:'Renault',    modelo:'Master',   ancho:1.99, largo:5.05, alto:2.48, is_active:1, created_at:now(), updated_at:now() },
+      { id:1, marca:'Mercedes',   modelo:'Sprinter', matricula:'1234ABC', ancho:2.10, largo:5.90, alto:2.80, is_active:1, created_at:now(), updated_at:now() },
+      { id:2, marca:'Volkswagen', modelo:'Crafter',  matricula:'5678DEF', ancho:2.05, largo:5.40, alto:2.60, is_active:1, created_at:now(), updated_at:now() },
+      { id:3, marca:'Ford',       modelo:'Transit',  matricula:'9012GHI', ancho:2.00, largo:5.50, alto:2.55, is_active:1, created_at:now(), updated_at:now() },
+      { id:4, marca:'Renault',    modelo:'Master',   matricula:null,      ancho:1.99, largo:5.05, alto:2.48, is_active:1, created_at:now(), updated_at:now() },
     ],
     frequent_passengers: [
       { id:1, nombre:'María', apellido1:'García', apellido2:'López', email:'maria@ejemplo.com', telefono_prefix:'+34', telefono:'612345678', fnac:'1985-06-15', nacionalidad:'ES', tipo_doc:'DNI', num_doc:'12345678A', exp_doc:'2027-06-15', created_at:now(), updated_at:now() },
@@ -137,7 +137,7 @@ function seed() {
       { id:1, invoice_number:'FAC-2024-001', fecha:'2024-01-15', importe:1250.00, estado:'Pagada',    archivo_nombre:'factura_001.pdf', archivo_mime:'application/pdf', archivo_tamanio:null, booking_id:null, trip_id:1, created_by:1, created_at:'2024-01-15 09:00:00', updated_at:'2024-01-15 09:00:00' },
       { id:2, invoice_number:'FAC-2024-002', fecha:'2024-02-08', importe: 875.50, estado:'Pendiente', archivo_nombre:'factura_002.pdf', archivo_mime:'application/pdf', archivo_tamanio:null, booking_id:null, trip_id:2, created_by:1, created_at:'2024-02-08 10:00:00', updated_at:'2024-02-08 10:00:00' },
       { id:3, invoice_number:'FAC-2024-003', fecha:'2024-02-28', importe:3400.00, estado:'Pagada',    archivo_nombre:'factura_003.pdf', archivo_mime:'application/pdf', archivo_tamanio:null, booking_id:null, trip_id:3, created_by:2, created_at:'2024-02-28 08:00:00', updated_at:'2024-02-28 08:00:00' },
-      { id:4, invoice_number:'FAC-2024-004', fecha:'2024-03-10', importe: 620.00, estado:'Vencida',   archivo_nombre:null,              archivo_mime:null,              archivo_tamanio:null, booking_id:null, trip_id:4, created_by:1, created_at:'2024-03-10 11:00:00', updated_at:'2024-03-10 11:00:00' },
+      { id:4, invoice_number:'FAC-2024-004', fecha:'2024-03-10', importe: 620.00, estado:'Anulada',   archivo_nombre:null,              archivo_mime:null,              archivo_tamanio:null, booking_id:null, trip_id:4, created_by:1, created_at:'2024-03-10 11:00:00', updated_at:'2024-03-10 11:00:00' },
       { id:5, invoice_number:'FAC-2024-005', fecha:'2024-03-22', importe:1890.75, estado:'Pendiente', archivo_nombre:'factura_005.pdf', archivo_mime:'application/pdf', archivo_tamanio:null, booking_id:null, trip_id:5, created_by:2, created_at:'2024-03-22 14:00:00', updated_at:'2024-03-22 14:00:00' },
     ],
     admin_actions: [

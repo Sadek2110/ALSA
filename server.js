@@ -26,11 +26,14 @@ const nodemailer = require('nodemailer');
 const store = require('./store');
 
 // ============================================================
-// EMAIL — nodemailer + Gmail
+// EMAIL — nodemailer + SMTP Kikoto
 // ============================================================
 const mailer = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
+  host: process.env.SMTP_HOST || 'mail.kikoto.es',
+  port: parseInt(process.env.SMTP_PORT) || 465,
+  secure: true,
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  tls: { rejectUnauthorized: false },
 });
 
 async function sendBookingEmail(booking) {
@@ -69,7 +72,7 @@ async function sendBookingEmail(booking) {
 <p style="color:#6b7280;font-size:12px">Reserva creada el ${b.created_at} — Estado: ${b.estado}</p>`;
 
   await mailer.sendMail({
-    from: '"Kikoto Reservas" <sadekjoud@gmail.com>',
+    from: `"Kikoto Reservas" <${process.env.SMTP_USER || 'noreply@kikoto.es'}>`,
     to:   'sadekjoud@gmail.com',
     subject: `[Kikoto] Nueva reserva #${b.id} — ${b.departure_port} → ${b.destination_port}`,
     html,
@@ -230,6 +233,25 @@ function bookingToJson(r) {
     email:         r.pax_email || '',
     vehiclePlate:  (r.veh_marca && r.veh_modelo) ? `${r.veh_marca} ${r.veh_modelo}` : null,
     createdAt:     (r.created_at || '').slice(0, 10),
+    // Flat fields for modal display
+    paxNombre:     r.pax_nombre       || '',
+    paxApellido1:  r.pax_apellido1    || '',
+    paxApellido2:  r.pax_apellido2    || '',
+    paxEmail:      r.pax_email        || '',
+    paxTelefono:   r.pax_telefono     || '',
+    paxTipoDoc:    r.pax_tipo_doc     || '',
+    paxNumDoc:     r.pax_num_doc      || '',
+    vehMarca:      r.veh_marca        || '',
+    vehModelo:     r.veh_modelo       || '',
+    vehMatricula:  r.veh_matricula    || '',
+    vehAncho:      parseFloat(r.veh_ancho) || 0,
+    vehLargo:      parseFloat(r.veh_largo) || 0,
+    vehAlto:       parseFloat(r.veh_alto)  || 0,
+    withPet:       r.with_pet || 0,
+    petNum:        r.pet_num  || null,
+    petRaza:       r.pet_raza || null,
+    vehicleCount:  r.vehicle_count || (r.veh_marca ? 1 : 0),
+    groupId:       r.group_id || null,
     passengerData: {
       nombre:       r.pax_nombre       || '',
       apellido1:    r.pax_apellido1    || '',
@@ -243,7 +265,7 @@ function bookingToJson(r) {
       expDoc:       r.pax_exp_doc      || '',
     },
     vehicleData: r.veh_marca ? {
-      marca:r.veh_marca, modelo:r.veh_modelo,
+      marca:r.veh_marca, modelo:r.veh_modelo, matricula:r.veh_matricula||'',
       ancho:parseFloat(r.veh_ancho)||0, largo:parseFloat(r.veh_largo)||0, alto:parseFloat(r.veh_alto)||0,
     } : null,
     petDetails: r.with_pet ? { num:r.pet_num, raza:r.pet_raza } : null,
@@ -267,7 +289,7 @@ app.post('/api/bookings', requireAuth, (req, res) => {
   if (!b.passengerData?.nombre)    errors.push('Nombre del pasajero requerido');
   if (!b.passengerData?.apellido1) errors.push('Apellido del pasajero requerido');
   if (!b.passengerData?.email)     errors.push('Email del pasajero requerido');
-  if (!['ida','vuelta','idayvuelta'].includes(b.tripType || '')) errors.push('tripType inválido');
+  if (!['ida','idayvuelta'].includes(b.tripType || '')) errors.push('tripType inválido (solo ida o idayvuelta)');
   if (b.passengerData?.email && !isValidEmail(b.passengerData.email)) errors.push('Email del pasajero inválido');
   if (b.origin && b.destination && b.origin.toLowerCase() === b.destination.toLowerCase()) {
     errors.push('El origen y el destino no pueden ser el mismo puerto');
@@ -278,6 +300,9 @@ app.post('/api/bookings', requireAuth, (req, res) => {
   const veh = b.vehicleData   || null;
   const pet = b.petDetails    || null;
 
+  const vehicleCount = parseInt(b.vehicleCount) || (veh ? 1 : 0);
+  const groupId = b.groupId || null;
+
   const row = store.insert('bookings', {
     trip_type: b.tripType, departure_port: b.origin, destination_port: b.destination,
     naviera: b.naviera, departure_date: b.departureDate, departure_time: b.departureTime || null,
@@ -287,8 +312,9 @@ app.post('/api/bookings', requireAuth, (req, res) => {
     pax_email: pax.email || '', pax_telefono: pax.telefono || null, pax_fnac: pax.fnac || null,
     pax_nacionalidad: pax.nacionalidad || null, pax_tipo_doc: pax.tipoDoc || null,
     pax_num_doc: (pax.numDoc || '').toUpperCase() || null, pax_exp_doc: pax.expDoc || null,
-    veh_marca: veh ? veh.marca : null, veh_modelo: veh ? veh.modelo : null,
+    veh_marca: veh ? veh.marca : null, veh_modelo: veh ? veh.modelo : null, veh_matricula: veh ? (veh.matricula || null) : null,
     veh_ancho: veh ? parseFloat(veh.ancho) : null, veh_largo: veh ? parseFloat(veh.largo) : null, veh_alto: veh ? parseFloat(veh.alto) : null,
+    vehicle_count: vehicleCount, group_id: groupId,
     with_pet: pet ? 1 : 0, pet_num: pet ? (pet.num || null) : null, pet_raza: pet ? (pet.raza || null) : null,
     notification_email: 'admin@kikoto.com', created_by: req.session.adminId,
   });
@@ -396,11 +422,44 @@ app.delete('/api/members/:id', requireAuth, (req, res) => {
   ok(res, { message: 'Miembro eliminado.' });
 });
 
+app.put('/api/members/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const existing = store.find('members', m => m.id === id);
+  if (!existing) return fail(res, 'Miembro no encontrado.', 404);
+
+  const b = req.body;
+  const changes = {};
+  if (b.nombre !== undefined)         changes.nombre = (b.nombre||'').trim();
+  if (b.apellido1 !== undefined)      changes.apellido1 = (b.apellido1||'').trim();
+  if (b.apellido2 !== undefined)      changes.apellido2 = (b.apellido2||'').trim() || null;
+  if (b.dni !== undefined)            changes.dni = (b.dni||'').toUpperCase().trim();
+  if (b.telefono !== undefined)       changes.telefono = (b.telefono||'').trim();
+  if (b.telefonoPrefix !== undefined) changes.telefono_prefix = (b.telefonoPrefix||'').trim();
+  if (b.email !== undefined)          changes.email = (b.email||'').trim() || null;
+  if (b.fechaNacimiento !== undefined) changes.fecha_nacimiento = b.fechaNacimiento;
+  if (b.fechaExpiracion !== undefined) changes.fecha_expiracion = b.fechaExpiracion;
+  if (b.nacionalidad !== undefined)   changes.nacionalidad = (b.nacionalidad||'').trim();
+  if (b.tipoDoc !== undefined)        changes.tipo_doc = (b.tipoDoc||'').trim();
+  if (b.numDoc !== undefined)         changes.num_doc = (b.numDoc||'').toUpperCase().trim();
+  if (b.expDoc !== undefined)         changes.exp_doc = (b.expDoc||'').trim() || null;
+
+  // Validar DNI único si se cambia
+  if (changes.dni && changes.dni !== existing.dni) {
+    if (!isValidDni(changes.dni)) return fail(res, 'DNI inválido (8 dígitos + letra)');
+    if (store.find('members', m => m.id !== id && m.dni === changes.dni)) return fail(res, 'Ya existe un miembro con ese DNI.', 409);
+  }
+
+  store.update('members', m => m.id === id, changes);
+  logAction('UPDATE', 'members', id, `Miembro #${id} actualizado`, req.session.adminId);
+  const updated = store.find('members', m => m.id === id);
+  ok(res, memberToJson(updated));
+});
+
 // ============================================================
 // VEHICLES — /api/vehicles
 // ============================================================
 function vehicleToJson(r) {
-  return { id:r.id, marca:r.marca, modelo:r.modelo, ancho:parseFloat(r.ancho)||0, largo:parseFloat(r.largo)||0, alto:parseFloat(r.alto)||0 };
+  return { id:r.id, marca:r.marca, modelo:r.modelo, matricula:r.matricula||'', ancho:parseFloat(r.ancho)||0, largo:parseFloat(r.largo)||0, alto:parseFloat(r.alto)||0 };
 }
 
 app.get('/api/vehicles', requireAuth, (_req, res) => {
@@ -422,9 +481,30 @@ app.post('/api/vehicles', requireAuth, (req, res) => {
   if (alt <= 0) errors.push('Alto debe ser mayor que 0');
   if (errors.length) return fail(res, errors.join('; '));
 
-  const row = store.insert('vehicles', { marca:mar, modelo:mod, ancho:anc, largo:lar, alto:alt, is_active:1 });
-  logAction('CREATE', 'vehicles', row.id, `Alta vehículo: ${mar} ${mod}`, req.session.adminId);
+  const mat = (req.body.matricula||'').toUpperCase().trim();
+
+  const row = store.insert('vehicles', { marca:mar, modelo:mod, matricula:mat||null, ancho:anc, largo:lar, alto:alt, is_active:1 });
+  logAction('CREATE', 'vehicles', row.id, `Alta vehículo: ${mar} ${mod}${mat ? ' ['+mat+']' : ''}`, req.session.adminId);
   ok(res, vehicleToJson(row), 201);
+});
+
+app.put('/api/vehicles/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const existing = store.find('vehicles', v => v.id === id);
+  if (!existing) return fail(res, 'Vehículo no encontrado.', 404);
+
+  const changes = {};
+  if (req.body.marca !== undefined)     changes.marca = (req.body.marca||'').trim();
+  if (req.body.modelo !== undefined)    changes.modelo = (req.body.modelo||'').trim();
+  if (req.body.matricula !== undefined) changes.matricula = (req.body.matricula||'').toUpperCase().trim() || null;
+  if (req.body.ancho !== undefined)     changes.ancho = parseFloat(req.body.ancho)||0;
+  if (req.body.largo !== undefined)     changes.largo = parseFloat(req.body.largo)||0;
+  if (req.body.alto !== undefined)      changes.alto = parseFloat(req.body.alto)||0;
+
+  store.update('vehicles', v => v.id === id, changes);
+  logAction('UPDATE', 'vehicles', id, `Vehículo #${id} actualizado`, req.session.adminId);
+  const updated = store.find('vehicles', v => v.id === id);
+  ok(res, vehicleToJson(updated));
 });
 
 app.delete('/api/vehicles/:id', requireAuth, (req, res) => {
@@ -460,7 +540,7 @@ app.post('/api/invoices', requireAuth, upload.single('archivo'), (req, res) => {
   if (!num)                      errors.push('Número de factura obligatorio');
   if (!fec || !isValidDate(fec)) errors.push('Fecha inválida');
   if (!imp || imp <= 0)          errors.push('Importe debe ser mayor que 0');
-  if (!['Pendiente','Pagada','Vencida'].includes(est)) errors.push('Estado inválido');
+  if (!['Pendiente','Pagada','Anulada'].includes(est)) errors.push('Estado inválido (Pendiente, Pagada o Anulada)');
 
   if (errors.length) {
     if (req.file) fs.unlink(req.file.path, () => {});
@@ -504,6 +584,26 @@ app.delete('/api/invoices/:id', requireAuth, (req, res) => {
   store.remove('invoices', i => i.id === id);
   logAction('DELETE', 'invoices', id, `Factura #${id} eliminada`, req.session.adminId);
   ok(res, { message: 'Factura eliminada.' });
+});
+
+app.patch('/api/invoices/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const existing = store.find('invoices', i => i.id === id);
+  if (!existing) return fail(res, 'Factura no encontrada.', 404);
+
+  const changes = {};
+  if (req.body.estado !== undefined) {
+    if (!['Pendiente','Pagada','Anulada'].includes(req.body.estado)) return fail(res, 'Estado inválido (Pendiente, Pagada o Anulada)');
+    changes.estado = req.body.estado;
+  }
+  if (req.body.numero !== undefined) changes.invoice_number = (req.body.numero||'').trim();
+  if (req.body.fecha !== undefined)  changes.fecha = req.body.fecha;
+  if (req.body.importe !== undefined) changes.importe = parseFloat(req.body.importe)||0;
+
+  store.update('invoices', i => i.id === id, changes);
+  logAction('UPDATE', 'invoices', id, `Factura #${id} actualizada — ${changes.estado || existing.estado}`, req.session.adminId);
+  const updated = store.find('invoices', i => i.id === id);
+  ok(res, invoiceToJson(updated));
 });
 
 // ============================================================
@@ -734,8 +834,8 @@ app.get('/api/test-email', requireAuth, async (_req, res) => {
   try {
     await mailer.verify();
     await mailer.sendMail({
-      from: '"Kikoto Reservas" <sadekjoud@gmail.com>',
-      to:   'sadekjoud@gmail.com',
+      from: `"Kikoto Reservas" <${process.env.SMTP_USER || 'noreply@kikoto.es'}>`,
+      to:   process.env.SMTP_USER || 'noreply@kikoto.es',
       subject: '[Kikoto] Email de prueba',
       text: 'Conexión SMTP funcionando correctamente.',
     });

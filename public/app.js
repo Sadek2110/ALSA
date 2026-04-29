@@ -131,7 +131,7 @@ function _loadDemoData() {
     { id:1, numero:'FAC-2024-001', fecha:'2024-01-15', importe:1250.00, estado:'Pagada',   archivo:'factura_001.pdf' },
     { id:2, numero:'FAC-2024-002', fecha:'2024-02-08', importe: 875.50, estado:'Pendiente',archivo:'factura_002.pdf' },
     { id:3, numero:'FAC-2024-003', fecha:'2024-02-28', importe:3400.00, estado:'Pagada',   archivo:'factura_003.pdf' },
-    { id:4, numero:'FAC-2024-004', fecha:'2024-03-10', importe: 620.00, estado:'Vencida',  archivo:null },
+    { id:4, numero:'FAC-2024-004', fecha:'2024-03-10', importe: 620.00, estado:'Anulada',  archivo:null },
     { id:5, numero:'FAC-2024-005', fecha:'2024-03-22', importe:1890.75, estado:'Pendiente',archivo:'factura_005.pdf' },
   ];
   state.admins = [
@@ -426,7 +426,6 @@ function showWizStep1() {
         <span class="form-sec-label">Tipo de trayecto</span>
         <div class="seg-ctrl" id="home-seg">
           <button class="seg-btn ${(!sp.tripType||sp.tripType==='Ida'||sp.tripType==='ida')?'active':''}" onclick="selectTripType('ida',this)">Ida</button>
-          <button class="seg-btn ${(sp.tripType==='vuelta'||sp.tripType==='Vuelta')?'active':''}" onclick="selectTripType('vuelta',this)">Vuelta</button>
           <button class="seg-btn ${(sp.tripType==='idayvuelta'||sp.tripType==='Ida y vuelta')?'active':''}" onclick="selectTripType('idayvuelta',this)">Ida y vuelta</button>
         </div>
       </div>
@@ -494,6 +493,9 @@ function showWizStep1() {
       }
     });
   }
+
+  // Autofocus on origin input (Kikoto "Voy con prisa" philosophy)
+  setTimeout(() => $('h-origen')?.focus(), 80);
 }
 
 async function loadRoutes() {
@@ -1088,7 +1090,7 @@ function showWizStep4() {
             <label class="form-label">Selecciona el vehículo</label>
             <select id="veh-select" class="form-input">
               <option value="">— Elige un vehículo —</option>
-              ${savedVehicles.map(v=>`<option value="${v.id}">${esc(v.marca)} ${esc(v.modelo)} — ${v.largo}m × ${v.ancho}m × ${v.alto}m</option>`).join('')}
+              ${savedVehicles.map(v=>`<option value="${v.id}">${esc(v.marca)} ${esc(v.modelo)}${v.matricula ? ' ['+esc(v.matricula)+']' : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m</option>`).join('')}
             </select>
             <span class="error-msg" id="e-veh-select"></span>
           </div>
@@ -1135,12 +1137,27 @@ function showWizStep4() {
           </div>
         </div>
 
+        <div style="margin-top:18px;margin-bottom:16px">
+          <span class="form-sec-label">Cantidad de vehículos</span>
+          <div class="vehicle-counter">
+            <button type="button" class="counter-btn" onclick="changeVehicleCount(-1)" id="vc-minus">−</button>
+            <div class="counter-value" id="vc-value">1</div>
+            <button type="button" class="counter-btn" onclick="changeVehicleCount(1)" id="vc-plus">+</button>
+          </div>
+        </div>
+
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">
           <button type="button" class="btn btn-secondary" style="width:auto" onclick="showWizStep3()">← Volver</button>
           <button type="submit" class="btn btn-primary" style="width:auto;padding:11px 28px">Siguiente: Confirmar →</button>
         </div>
       </form>
     </div>`;
+
+  // Initialize counter
+  state.bookingWizard._vehicleCount = state.bookingWizard._vehicleCount || 1;
+  const vcEl = $('vc-value');
+  if (vcEl) vcEl.textContent = state.bookingWizard._vehicleCount;
+  updateCounterBtns();
 }
 
 function onVehicleModeChange(mode) {
@@ -1172,7 +1189,7 @@ function wizStep2Submit(e) {
     if (!selVal) { fieldErr('e-veh-select','veh-select','Selecciona un vehículo'); return; }
     fieldOk('e-veh-select','veh-select');
     const v = state.vehicles.find(v=>String(v.id)===selVal);
-    if (v) state.bookingWizard.vehicle = { marca:v.marca, modelo:v.modelo, ancho:v.ancho, largo:v.largo, alto:v.alto };
+    if (v) state.bookingWizard.vehicle = { marca:v.marca, modelo:v.modelo, matricula:v.matricula||'', ancho:v.ancho, largo:v.largo, alto:v.alto };
   } else {
     const mar = val('veh-mar').trim();
     const mod = val('veh-mod').trim();
@@ -1188,7 +1205,7 @@ function wizStep2Submit(e) {
     if (isNaN(alt)||alt<=0) { fieldErr('e-veh-alt','veh-alt','Valor positivo requerido'); ok=false; } else fieldOk('e-veh-alt','veh-alt');
     if (!ok) return;
 
-    state.bookingWizard.vehicle = { marca:mar, modelo:mod, ancho:anc, largo:lar, alto:alt };
+    state.bookingWizard.vehicle = { marca:mar, modelo:mod, matricula:'', ancho:anc, largo:lar, alto:alt };
   }
 
   showWizStep5();
@@ -1204,7 +1221,7 @@ function showWizStep5() {
   const pax = wz.passenger;
   const veh = wz.vehicle;
   const sail = wz.selectedSailing;
-  const tripTypeLabel = wz.tripType === 'idayvuelta' ? 'Ida y vuelta' : wz.tripType === 'vuelta' ? 'Vuelta' : 'Ida';
+  const tripTypeLabel = wz.tripType === 'idayvuelta' ? 'Ida y vuelta' : 'Ida';
 
   const nacMap = { ES:'Española',FR:'Francesa',IT:'Italiana',PT:'Portuguesa',UK:'Británica',DE:'Alemana',MA:'Marroquí',OTHER:'Otra' };
 
@@ -1231,10 +1248,31 @@ function showWizStep5() {
           <div class="wiz-summary-row"><span class="wiz-sum-label">Ruta</span><span class="wiz-sum-val">${esc(wz.origin)} → ${esc(wz.destination)}</span></div>
           <div class="wiz-summary-row"><span class="wiz-sum-label">Tipo</span><span class="wiz-sum-val">${tripTypeLabel}</span></div>
           <div class="wiz-summary-row"><span class="wiz-sum-label">Naviera</span><span class="wiz-sum-val">${esc(sail.naviera)}</span></div>
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Salida</span><span class="wiz-sum-val">${esc(sail.departureDate)} a las ${esc(sail.departureTime)}</span></div>
-          ${wz.dateVuelta ? `<div class="wiz-summary-row"><span class="wiz-sum-label">Vuelta</span><span class="wiz-sum-val">${esc(wz.dateVuelta)}</span></div>` : ''}
         </div>
       </div>
+
+      <!-- Desglose ida/vuelta -->
+      <div class="trip-leg">
+        <div class="trip-leg-header">
+          <div class="trip-leg-icon ida"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+          <div class="trip-leg-title">Trayecto de ida</div>
+        </div>
+        <div class="trip-leg-details">
+          ${esc(wz.origin)} → ${esc(wz.destination)}<br>
+          ${esc(sail.departureDate)} a las ${esc(sail.departureTime)}
+        </div>
+      </div>
+      ${wz.dateVuelta ? `
+      <div class="trip-leg">
+        <div class="trip-leg-header">
+          <div class="trip-leg-icon vuelta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></div>
+          <div class="trip-leg-title">Trayecto de vuelta</div>
+        </div>
+        <div class="trip-leg-details">
+          ${esc(wz.destination)} → ${esc(wz.origin)}<br>
+          ${esc(wz.dateVuelta)}
+        </div>
+      </div>` : ''}
 
       <!-- Bloque: Pasajero -->
       <div class="wiz-summary-block">
@@ -1276,7 +1314,8 @@ function showWizStep5() {
       </div>` : ''}
 
       <form id="wiz-confirm-form" onsubmit="doFinalizeBooking(event)" novalidate>
-        <div style="margin:16px 0 20px" id="guardar-frecuente-wrap">
+        <div style="margin:16px 0 20px" id="guardar-frecuente-wrap"
+          ${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? 'style="display:none"' : ''}>
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
             <input type="checkbox" id="pax-frecuente" style="width:17px;height:17px;accent-color:var(--primary)">
             Guardar pasajero como frecuente para futuras reservas
@@ -1308,6 +1347,7 @@ async function doFinalizeBooking(e) {
     returnDate:    wz.dateVuelta || null,
     passengerData: wz.passenger,
     vehicleData:   wz.vehicle   || null,
+    vehicleCount:  wz._vehicleCount || (wz.vehicle ? 1 : 0),
     petDetails:    wz.petDetails || null,
   };
 
@@ -1351,7 +1391,7 @@ function cancelWizard() {
 // ============================================================
 function renderViajes() {
   const newId = state.lastCreatedBookingId;
-  const tripTypeLabel = t => t==='idayvuelta'?'Ida y vuelta':t==='vuelta'?'Vuelta':'Ida';
+  const tripTypeLabel = t => t==='idayvuelta'?'Ida y vuelta':'Ida';
 
   return `<div class="section-page">
     <div class="sec-header">
@@ -1551,7 +1591,7 @@ function renderFacturas() {
             <select id="i-est" class="form-input">
               <option value="Pendiente">Pendiente</option>
               <option value="Pagada">Pagada</option>
-              <option value="Vencida">Vencida</option>
+              <option value="Anulada">Anulada</option>
             </select>
           </div>
         </div>
@@ -1615,6 +1655,9 @@ function renderMiembros() {
                   <td><span class="badge ${isExpired(m.fechaExpiracion)?'badge-danger':'badge-success'}">${fmtDateShort(m.fechaExpiracion)}</span></td>
                   <td>
                     <div class="tbl-actions">
+                      <button class="btn-edit" onclick="editMember(${m.id})">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
                       <button class="btn btn-danger btn-sm" onclick="deleteMember(${m.id})">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                       </button>
@@ -1726,18 +1769,22 @@ function renderVehiculos() {
       <div class="tbl-wrap" style="border:none;border-radius:0">
         <table>
           <thead>
-            <tr><th>Marca</th><th>Modelo</th><th>Ancho</th><th>Largo</th><th>Alto</th><th>Acciones</th></tr>
+            <tr><th>Marca</th><th>Modelo</th><th>Matrícula</th><th>Ancho</th><th>Largo</th><th>Alto</th><th>Acciones</th></tr>
           </thead>
           <tbody>
             ${state.vehicles.map(v=>`
               <tr>
                 <td style="font-weight:700">${esc(v.marca)}</td>
                 <td>${esc(v.modelo)}</td>
+                <td>${v.matricula ? `<span class="pill-code">${esc(v.matricula)}</span>` : '<span style="color:var(--gray-300)">—</span>'}</td>
                 <td><span class="pill-code">${v.ancho}m</span></td>
                 <td><span class="pill-code">${v.largo}m</span></td>
                 <td><span class="pill-code">${v.alto}m</span></td>
                 <td>
                   <div class="tbl-actions">
+                    <button class="btn-edit" onclick="editVehicle(${v.id})">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
                     <button class="btn btn-danger btn-sm" onclick="deleteVehicle(${v.id})">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                     </button>
@@ -2372,7 +2419,7 @@ function estadoBadge(e) {
   return {Activo:'badge-active',Confirmado:'badge-success',Pendiente:'badge-warning',Cancelado:'badge-danger'}[e]||'badge-gray';
 }
 function facturaBadge(e) {
-  return {Pagada:'badge-success',Pendiente:'badge-warning',Vencida:'badge-danger'}[e]||'badge-gray';
+  return {Pagada:'badge-success',Pendiente:'badge-warning',Anulada:'badge-danger'}[e]||'badge-gray';
 }
 function isExpired(s) { return s ? new Date(s) < new Date() : false; }
 function initials(name) {
@@ -2410,4 +2457,228 @@ function getNavieraLogo(name, size = 'lg') {
   const color = textFound ? textFound.color : 'var(--primary)';
   const bg    = textFound ? textFound.bg    : 'var(--primary-50)';
   return `<div class="${cls}" style="background:${bg};color:${color}">${abbr}</div>`;
+}
+
+// ============================================================
+// VEHICLE COUNTER
+// ============================================================
+function changeVehicleCount(delta) {
+  if (!state.bookingWizard) return;
+  const current = state.bookingWizard._vehicleCount || 1;
+  const next = Math.max(1, Math.min(10, current + delta));
+  state.bookingWizard._vehicleCount = next;
+  const vcEl = $('vc-value');
+  if (vcEl) vcEl.textContent = next;
+  updateCounterBtns();
+}
+
+function updateCounterBtns() {
+  const count = state.bookingWizard?._vehicleCount || 1;
+  const minus = $('vc-minus');
+  const plus  = $('vc-plus');
+  if (minus) minus.disabled = count <= 1;
+  if (plus)  plus.disabled  = count >= 10;
+}
+
+// ============================================================
+// BOOKING DETAIL MODAL
+// ============================================================
+function openBookingModal(bookingId) {
+  const b = state.bookings.find(x => x.id === bookingId);
+  if (!b) return;
+  const overlay = $('booking-modal-overlay');
+  const body    = $('booking-modal-body');
+  if (!overlay || !body) return;
+
+  const tripLabel = b.tripType === 'idayvuelta' ? 'Ida y vuelta' : 'Ida';
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Reserva #${b.id}</div>
+      <button class="modal-close" onclick="closeBookingModal()" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l2-2m0 0l7-7 4 4L21 6"/></svg>
+          Detalles del viaje
+        </div>
+        <div class="modal-detail-grid">
+          <div class="modal-detail-item"><div class="modal-detail-label">Tipo</div><div class="modal-detail-value">${tripLabel}</div></div>
+          <div class="modal-detail-item"><div class="modal-detail-label">Estado</div><div class="modal-detail-value"><span class="badge ${estadoBadge(b.estado)}">${esc(b.estado)}</span></div></div>
+          <div class="modal-detail-item"><div class="modal-detail-label">Origen</div><div class="modal-detail-value">${esc(b.departurePort)}</div></div>
+          <div class="modal-detail-item"><div class="modal-detail-label">Destino</div><div class="modal-detail-value">${esc(b.destinationPort)}</div></div>
+          <div class="modal-detail-item"><div class="modal-detail-label">Naviera</div><div class="modal-detail-value">${esc(b.naviera)}</div></div>
+          <div class="modal-detail-item"><div class="modal-detail-label">Fecha ida</div><div class="modal-detail-value">${esc(b.departureDate)} ${b.departureTime||''}</div></div>
+          ${b.returnDate ? `<div class="modal-detail-item"><div class="modal-detail-label">Fecha vuelta</div><div class="modal-detail-value">${esc(b.returnDate)} ${b.returnTime||''}</div></div>` : ''}
+          <div class="modal-detail-item"><div class="modal-detail-label">Localizador</div><div class="modal-detail-value">${b.localizador ? `<span class="pill-code">${esc(b.localizador)}</span>` : '<span style="color:var(--gray-300)">Pendiente</span>'}</div></div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Pasajero
+        </div>
+        <div class="modal-detail-grid">
+          <div class="modal-detail-item"><div class="modal-detail-label">Nombre</div><div class="modal-detail-value">${esc(b.paxNombre)} ${esc(b.paxApellido1)} ${esc(b.paxApellido2||'')}</div></div>
+          <div class="modal-detail-item"><div class="modal-detail-label">Email</div><div class="modal-detail-value">${esc(b.paxEmail)}</div></div>
+          ${b.paxTelefono ? `<div class="modal-detail-item"><div class="modal-detail-label">Teléfono</div><div class="modal-detail-value">${esc(b.paxTelefono)}</div></div>` : ''}
+          ${b.paxTipoDoc ? `<div class="modal-detail-item"><div class="modal-detail-label">Documento</div><div class="modal-detail-value">${esc(b.paxTipoDoc)} ${esc(b.paxNumDoc||'')}</div></div>` : ''}
+        </div>
+      </div>
+
+      ${b.vehMarca ? `
+      <div class="modal-section">
+        <div class="modal-section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Vehículo
+        </div>
+        <div class="modal-detail-grid">
+          <div class="modal-detail-item"><div class="modal-detail-label">Marca / Modelo</div><div class="modal-detail-value">${esc(b.vehMarca)} ${esc(b.vehModelo)}</div></div>
+          ${b.vehMatricula ? `<div class="modal-detail-item"><div class="modal-detail-label">Matrícula</div><div class="modal-detail-value"><span class="pill-code">${esc(b.vehMatricula)}</span></div></div>` : ''}
+          <div class="modal-detail-item"><div class="modal-detail-label">Dimensiones</div><div class="modal-detail-value">${b.vehLargo||'?'}m × ${b.vehAncho||'?'}m × ${b.vehAlto||'?'}m</div></div>
+        </div>
+      </div>` : ''}
+
+      ${b.withPet ? `
+      <div class="modal-section">
+        <div class="modal-section-title">🐾 Mascota</div>
+        <div class="modal-detail-grid">
+          <div class="modal-detail-item"><div class="modal-detail-label">Cantidad</div><div class="modal-detail-value">${b.petNum||1}</div></div>
+          ${b.petRaza ? `<div class="modal-detail-item"><div class="modal-detail-label">Raza</div><div class="modal-detail-value">${esc(b.petRaza)}</div></div>` : ''}
+        </div>
+      </div>` : ''}
+    </div>`;
+
+  overlay.style.display = 'flex';
+  overlay.classList.remove('closing');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBookingModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const overlay = $('booking-modal-overlay');
+  if (!overlay) return;
+  overlay.classList.add('closing');
+  document.body.style.overflow = '';
+  setTimeout(() => { overlay.style.display = 'none'; overlay.classList.remove('closing'); }, 150);
+}
+
+// ============================================================
+// EDIT MEMBER (inline modal)
+// ============================================================
+async function editMember(id) {
+  const m = state.members.find(x => x.id === id);
+  if (!m) return;
+
+  const overlay = $('booking-modal-overlay');
+  const body    = $('booking-modal-body');
+  if (!overlay || !body) return;
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Editar Miembro #${m.id}</div>
+      <button class="modal-close" onclick="closeBookingModal()" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="edit-member-form" onsubmit="submitEditMember(event, ${id})" novalidate>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-input" id="em-nombre" value="${esc(m.nombre)}"></div>
+          <div class="form-group"><label class="form-label">Apellido 1</label><input type="text" class="form-input" id="em-ape1" value="${esc(m.apellido1)}"></div>
+          <div class="form-group"><label class="form-label">Apellido 2</label><input type="text" class="form-input" id="em-ape2" value="${esc(m.apellido2||'')}"></div>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="em-email" value="${esc(m.email||'')}"></div>
+          <div class="form-group"><label class="form-label">Teléfono</label><input type="text" class="form-input" id="em-tel" value="${esc(m.telefono||'')}"></div>
+          <div class="form-group"><label class="form-label">Nacionalidad</label><input type="text" class="form-input" id="em-nac" value="${esc(m.nacionalidad||'')}"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button type="button" class="btn btn-secondary" style="width:auto" onclick="closeBookingModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="width:auto">Guardar cambios</button>
+        </div>
+      </form>
+    </div>`;
+
+  overlay.style.display = 'flex';
+  overlay.classList.remove('closing');
+  document.body.style.overflow = 'hidden';
+}
+
+async function submitEditMember(e, id) {
+  e.preventDefault();
+  try {
+    const updated = await api('PUT', `/members/${id}`, {
+      nombre: val('em-nombre'), apellido1: val('em-ape1'), apellido2: val('em-ape2'),
+      email: val('em-email'), telefono: val('em-tel'), nacionalidad: val('em-nac'),
+    });
+    const idx = state.members.findIndex(m => m.id === id);
+    if (idx >= 0) state.members[idx] = updated;
+    closeBookingModal();
+    render();
+    showToast('success', 'Miembro actualizado', `${updated.nombre} ${updated.apellido1} guardado.`);
+  } catch (err) {
+    showToast('error', 'Error al actualizar', err.message);
+  }
+}
+
+// ============================================================
+// EDIT VEHICLE (inline modal)
+// ============================================================
+async function editVehicle(id) {
+  const v = state.vehicles.find(x => x.id === id);
+  if (!v) return;
+
+  const overlay = $('booking-modal-overlay');
+  const body    = $('booking-modal-body');
+  if (!overlay || !body) return;
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Editar Vehículo #${v.id}</div>
+      <button class="modal-close" onclick="closeBookingModal()" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="edit-vehicle-form" onsubmit="submitEditVehicle(event, ${id})" novalidate>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Marca</label><input type="text" class="form-input" id="ev-marca" value="${esc(v.marca)}"></div>
+          <div class="form-group"><label class="form-label">Modelo</label><input type="text" class="form-input" id="ev-modelo" value="${esc(v.modelo)}"></div>
+          <div class="form-group"><label class="form-label">Matrícula</label><input type="text" class="form-input" id="ev-mat" value="${esc(v.matricula||'')}" placeholder="Ej: 1234ABC"></div>
+        </div>
+        <div class="form-grid-3" style="margin-top:8px">
+          <div class="form-group"><label class="form-label">Ancho (m)</label><input type="number" class="form-input" id="ev-ancho" value="${v.ancho}" step="0.01"></div>
+          <div class="form-group"><label class="form-label">Largo (m)</label><input type="number" class="form-input" id="ev-largo" value="${v.largo}" step="0.01"></div>
+          <div class="form-group"><label class="form-label">Alto (m)</label><input type="number" class="form-input" id="ev-alto" value="${v.alto}" step="0.01"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button type="button" class="btn btn-secondary" style="width:auto" onclick="closeBookingModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="width:auto">Guardar cambios</button>
+        </div>
+      </form>
+    </div>`;
+
+  overlay.style.display = 'flex';
+  overlay.classList.remove('closing');
+  document.body.style.overflow = 'hidden';
+}
+
+async function submitEditVehicle(e, id) {
+  e.preventDefault();
+  try {
+    const updated = await api('PUT', `/vehicles/${id}`, {
+      marca: val('ev-marca'), modelo: val('ev-modelo'), matricula: val('ev-mat'),
+      ancho: val('ev-ancho'), largo: val('ev-largo'), alto: val('ev-alto'),
+    });
+    const idx = state.vehicles.findIndex(v => v.id === id);
+    if (idx >= 0) state.vehicles[idx] = updated;
+    closeBookingModal();
+    render();
+    showToast('success', 'Vehículo actualizado', `${updated.marca} ${updated.modelo} guardado.`);
+  } catch (err) {
+    showToast('error', 'Error al actualizar', err.message);
+  }
 }

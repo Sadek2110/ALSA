@@ -1825,3 +1825,399 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
   color: var(--gray-800);
 }
 
+/* ======================================================
+   BOOKING DETAIL MODAL
+====================================================== */
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modalFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modalFadeIn 0.18s ease;
+}
+.modal-overlay.closing {
+  animation: modalFadeOut 0.15s ease forwards;
+}
+
+.modal-content {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0,0,0,0.04);
+  max-width: 640px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: modalSlideUp 0.22s ease;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-200) transparent;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--gray-100);
+  position: sticky;
+  top: 0;
+  background: var(--white);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  z-index: 2;
+}
+
+.modal-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--gray-900);
+  letter-spacing: -0.02em;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: var(--gray-100);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-500);
+  transition: var(--transition);
+}
+.modal-close:hover { background: var(--danger-light); color: var(--danger); }
+
+.modal-body {
+  padding: 20px 24px 24px;
+}
+
+.modal-section {
+  margin-bottom: 18px;
+}
+
+.modal-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-400);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modal-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.modal-detail-item {
+  padding: 8px 0;
+}
+
+.modal-detail-label {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.modal-detail-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+/* ======================================================
+   ENHANCED SELECT COMPONENT (Atomic Design)
+====================================================== */
+
+select.form-input,
+.wiz-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23288cfc' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding: 10px 38px 10px 14px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--gray-800);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  outline: none;
+}
+
+select.form-input:hover,
+.wiz-select:hover {
+  border-color: var(--primary-light);
+  background-color: #fafcff;
+}
+
+select.form-input:focus,
+.wiz-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(40, 140, 252, 0.12);
+  background-color: #fafcff;
+}
+
+select.form-input option {
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+/* Status selector in tables */
+.status-select {
+  padding: 4px 28px 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-full);
+  background-size: 12px;
+  background-position: right 6px center;
+  min-width: 100px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.status-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(40,140,252,0.12);
+}
+
+/* ======================================================
+   EDIT BUTTON
+====================================================== */
+
+.btn-edit {
+  background: var(--primary-50);
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius);
+  padding: 5px 9px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-edit:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(40,140,252,0.25);
+}
+
+/* ======================================================
+   VEHICLE COUNTER
+====================================================== */
+
+.vehicle-counter {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+  width: fit-content;
+}
+
+.counter-btn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: var(--gray-50);
+  color: var(--gray-600);
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.counter-btn:hover {
+  background: var(--primary-50);
+  color: var(--primary);
+}
+.counter-btn:active {
+  background: var(--primary-100);
+}
+.counter-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.counter-value {
+  width: 48px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  border-left: 1px solid var(--gray-200);
+  border-right: 1px solid var(--gray-200);
+  background: var(--white);
+}
+
+/* ======================================================
+   ROUND-TRIP DESGLOSE
+====================================================== */
+
+.trip-leg {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background: var(--white);
+}
+
+.trip-leg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.trip-leg-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.trip-leg-icon.ida { background: var(--primary-50); color: var(--primary); }
+.trip-leg-icon.vuelta { background: #fef3c7; color: #d97706; }
+
+.trip-leg-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.trip-leg-details {
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  line-height: 1.6;
+}
+
+/* ======================================================
+   PASSENGER ADD BUTTON
+====================================================== */
+
+.add-pax-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px dashed var(--gray-200);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--gray-500);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: var(--transition);
+  margin-top: 12px;
+}
+.add-pax-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-50);
+}
+
+.pax-block {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  background: var(--white);
+}
+
+.pax-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pax-block-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.pax-remove-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--danger-light);
+  color: var(--danger);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: var(--transition);
+}
+.pax-remove-btn:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* ======================================================
+   RESPONSIVE MODAL
+====================================================== */
+
+@media (max-width: 640px) {
+  .modal-content {
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    margin-top: auto;
+  }
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
