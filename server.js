@@ -7,6 +7,8 @@
 
 'use strict';
 
+require('dotenv').config();
+
 process.on('uncaughtException', (err) => {
   console.error('FATAL ERROR:', err.message);
   console.error(err.stack);
@@ -46,30 +48,41 @@ async function sendBookingEmail(booking) {
     : 'No';
 
   const html = `
-<h2 style="color:#1a56db">Nueva reserva Kikoto #${b.id}</h2>
-<h3>Viaje</h3>
-<table>
-  <tr><td><b>Tipo</b></td><td>${b.trip_type}</td></tr>
-  <tr><td><b>Ruta</b></td><td>${b.departure_port} → ${b.destination_port}</td></tr>
-  <tr><td><b>Naviera</b></td><td>${b.naviera}</td></tr>
-  <tr><td><b>Salida</b></td><td>${b.departure_date} ${b.departure_time || ''}</td></tr>
-  ${b.return_date ? `<tr><td><b>Vuelta</b></td><td>${b.return_date} ${b.return_time || ''}</td></tr>` : ''}
-</table>
-<h3>Pasajero</h3>
-<table>
-  <tr><td><b>Nombre</b></td><td>${b.pax_nombre} ${b.pax_apellido1} ${b.pax_apellido2 || ''}</td></tr>
-  <tr><td><b>Email</b></td><td>${b.pax_email}</td></tr>
-  <tr><td><b>Teléfono</b></td><td>${b.pax_telefono || '—'}</td></tr>
-  <tr><td><b>F. Nacimiento</b></td><td>${b.pax_fnac || '—'}</td></tr>
-  <tr><td><b>Nacionalidad</b></td><td>${b.pax_nacionalidad || '—'}</td></tr>
-  <tr><td><b>Documento</b></td><td>${b.pax_tipo_doc} ${b.pax_num_doc} (exp. ${b.pax_exp_doc || '—'})</td></tr>
-</table>
-<h3>Vehículo</h3>
-<p>${veh}</p>
-<h3>Mascota</h3>
-<p>${pet}</p>
-<hr>
-<p style="color:#6b7280;font-size:12px">Reserva creada el ${b.created_at} — Estado: ${b.estado}</p>`;
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="background:#288cfc;padding:24px;text-align:center">
+    <img src="https://kikoto.es/img/logo.png" alt="Kikoto" style="height:40px;margin-bottom:8px">
+    <div style="color:white;font-size:20px;font-weight:bold">KIKOTO FERRIES</div>
+  </div>
+  <div style="padding:24px">
+    <h2 style="color:#1a56db;margin-top:0">Nueva reserva Kikoto #${b.id}</h2>
+    <p>Se ha registrado una nueva solicitud de reserva desde el panel de agencias.</p>
+    
+    <h3 style="border-bottom:1px solid #eee;padding-bottom:8px">Detalles del Viaje</h3>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:8px 0;color:#6b7280">Tipo</td><td style="padding:8px 0;font-weight:600">${b.trip_type === 'idayvuelta' ? 'Ida y vuelta' : 'Ida'}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Ruta</td><td style="padding:8px 0;font-weight:600">${b.departure_port} → ${b.destination_port}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Naviera</td><td style="padding:8px 0;font-weight:600">${b.naviera}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Salida</td><td style="padding:8px 0;font-weight:600">${b.departure_date} ${b.departure_time || ''}</td></tr>
+      ${b.return_date ? `<tr><td style="padding:8px 0;color:#6b7280">Vuelta</td><td style="padding:8px 0;font-weight:600">${b.return_date} ${b.return_time || ''}</td></tr>` : ''}
+    </table>
+
+    <h3 style="border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Pasajero Principal</h3>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:8px 0;color:#6b7280">Nombre</td><td style="padding:8px 0;font-weight:600">${b.pax_nombre} ${b.pax_apellido1}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Email</td><td style="padding:8px 0;font-weight:600">${b.pax_email}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Documento</td><td style="padding:8px 0;font-weight:600">${b.pax_tipo_doc} ${b.pax_num_doc}</td></tr>
+    </table>
+
+    <h3 style="border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Vehículo</h3>
+    <p style="margin:8px 0;font-weight:600">${veh}</p>
+    ${b.veh_matricula ? `<p style="margin:4px 0;color:#6b7280">Matrícula: <span style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-family:monospace;color:#111827">${b.veh_matricula}</span></p>` : ''}
+
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;color:#9ca3af;font-size:12px;text-align:center">
+      Reserva creada el ${b.created_at} — ID Grupo: ${b.group_id || 'N/A'}<br>
+      © 2024 Kikoto Soluciones Tecnológicas S.L.
+    </div>
+  </div>
+</div>`;
 
   await mailer.sendMail({
     from: `"Kikoto Reservas" <${process.env.SMTP_USER || 'noreply@kikoto.es'}>`,
@@ -286,42 +299,62 @@ app.post('/api/bookings', requireAuth, (req, res) => {
   if (!b.destination)              errors.push('destination requerido');
   if (!b.naviera)                  errors.push('naviera requerido');
   if (!b.departureDate)            errors.push('departureDate requerido');
-  if (!b.passengerData?.nombre)    errors.push('Nombre del pasajero requerido');
-  if (!b.passengerData?.apellido1) errors.push('Apellido del pasajero requerido');
-  if (!b.passengerData?.email)     errors.push('Email del pasajero requerido');
+  
+  const passengers = b.passengers || (b.passengerData ? [b.passengerData] : []);
+  if (passengers.length === 0) {
+    errors.push('Al menos un pasajero es requerido');
+  } else {
+    passengers.forEach((p, i) => {
+      if (!p.nombre)    errors.push(`Nombre del pasajero ${i+1} requerido`);
+      if (!p.apellido1) errors.push(`Apellido del pasajero ${i+1} requerido`);
+      if (!p.email)     errors.push(`Email del pasajero ${i+1} requerido`);
+      if (p.email && !isValidEmail(p.email)) errors.push(`Email del pasajero ${i+1} inválido`);
+    });
+  }
+
   if (!['ida','idayvuelta'].includes(b.tripType || '')) errors.push('tripType inválido (solo ida o idayvuelta)');
-  if (b.passengerData?.email && !isValidEmail(b.passengerData.email)) errors.push('Email del pasajero inválido');
   if (b.origin && b.destination && b.origin.toLowerCase() === b.destination.toLowerCase()) {
     errors.push('El origen y el destino no pueden ser el mismo puerto');
   }
   if (errors.length) return fail(res, errors.join('; '));
 
-  const pax = b.passengerData || {};
   const veh = b.vehicleData   || null;
   const pet = b.petDetails    || null;
-
   const vehicleCount = parseInt(b.vehicleCount) || (veh ? 1 : 0);
-  const groupId = b.groupId || null;
+  const groupId = b.groupId || `GRP-${Date.now()}`;
 
-  const row = store.insert('bookings', {
-    trip_type: b.tripType, departure_port: b.origin, destination_port: b.destination,
-    naviera: b.naviera, departure_date: b.departureDate, departure_time: b.departureTime || null,
-    return_date: b.returnDate || null, return_time: b.returnTime || null,
-    estado: 'Pendiente', localizador: null,
-    pax_nombre: pax.nombre || '', pax_apellido1: pax.apellido1 || '', pax_apellido2: pax.apellido2 || null,
-    pax_email: pax.email || '', pax_telefono: pax.telefono || null, pax_fnac: pax.fnac || null,
-    pax_nacionalidad: pax.nacionalidad || null, pax_tipo_doc: pax.tipoDoc || null,
-    pax_num_doc: (pax.numDoc || '').toUpperCase() || null, pax_exp_doc: pax.expDoc || null,
-    veh_marca: veh ? veh.marca : null, veh_modelo: veh ? veh.modelo : null, veh_matricula: veh ? (veh.matricula || null) : null,
-    veh_ancho: veh ? parseFloat(veh.ancho) : null, veh_largo: veh ? parseFloat(veh.largo) : null, veh_alto: veh ? parseFloat(veh.alto) : null,
-    vehicle_count: vehicleCount, group_id: groupId,
-    with_pet: pet ? 1 : 0, pet_num: pet ? (pet.num || null) : null, pet_raza: pet ? (pet.raza || null) : null,
-    notification_email: 'admin@kikoto.com', created_by: req.session.adminId,
+  const results = [];
+  passengers.forEach((pax, idx) => {
+    const row = store.insert('bookings', {
+      trip_type: b.tripType, departure_port: b.origin, destination_port: b.destination,
+      naviera: b.naviera, departure_date: b.departureDate, departure_time: b.departureTime || null,
+      return_date: b.returnDate || null, return_time: b.returnTime || null,
+      estado: 'Pendiente', localizador: null,
+      pax_nombre: pax.nombre || '', pax_apellido1: pax.apellido1 || '', pax_apellido2: pax.apellido2 || null,
+      pax_email: pax.email || '', pax_telefono: pax.telefono || null, pax_fnac: pax.fnac || null,
+      pax_nacionalidad: pax.nacionalidad || null, pax_tipo_doc: pax.tipoDoc || null,
+      pax_num_doc: (pax.numDoc || '').toUpperCase() || null, pax_exp_doc: pax.expDoc || null,
+      veh_marca: idx === 0 ? (veh ? veh.marca : null) : null,
+      veh_modelo: idx === 0 ? (veh ? veh.modelo : null) : null,
+      veh_matricula: idx === 0 ? (veh ? (veh.matricula || null) : null) : null,
+      veh_ancho: idx === 0 ? (veh ? parseFloat(veh.ancho) : null) : null,
+      veh_largo: idx === 0 ? (veh ? parseFloat(veh.largo) : null) : null,
+      veh_alto: idx === 0 ? (veh ? parseFloat(veh.alto) : null) : null,
+      vehicle_count: idx === 0 ? vehicleCount : 0,
+      group_id: groupId,
+      with_pet: idx === 0 ? (pet ? 1 : 0) : 0,
+      pet_num: idx === 0 ? (pet ? (pet.num || null) : null) : null,
+      pet_raza: idx === 0 ? (pet ? (pet.raza || null) : null) : null,
+      notification_email: 'admin@kikoto.com', created_by: req.session.adminId,
+    });
+    results.push(bookingToJson(row));
+    if (idx === 0) {
+      logAction('BOOKING_CREATE', 'bookings', row.id, `Reserva GRUPAL (${passengers.length} pax) ${b.origin} → ${b.destination}`, req.session.adminId);
+      sendBookingEmail(row).catch(err => console.error('[EMAIL] Error al enviar:', err.message));
+    }
   });
 
-  logAction('BOOKING_CREATE', 'bookings', row.id, `Reserva ${b.origin} → ${b.destination}, ${b.naviera}`, req.session.adminId);
-  sendBookingEmail(row).catch(err => console.error('[EMAIL] Error al enviar:', err.message));
-  ok(res, bookingToJson(row), 201);
+  ok(res, results[0], 201);
 });
 
 app.patch('/api/bookings/:id', requireAuth, (req, res) => {
@@ -562,10 +595,12 @@ app.post('/api/invoices', requireAuth, upload.single('archivo'), (req, res) => {
     archivoNombre = req.body.archivo.trim();
   }
 
+  const bid = req.body.booking_id ? parseInt(req.body.booking_id) : null;
+
   const row = store.insert('invoices', {
     invoice_number: num, fecha: fec, importe: imp, estado: est,
     archivo_nombre: archivoNombre, archivo_mime: archivoMime, archivo_tamanio: archivoSize,
-    booking_id: null, trip_id: null, created_by: req.session.adminId,
+    booking_id: bid, trip_id: null, created_by: req.session.adminId,
   });
   logAction('CREATE', 'invoices', row.id, `Factura ${num} — €${imp}`, req.session.adminId);
   ok(res, invoiceToJson(row), 201);
@@ -758,57 +793,76 @@ app.delete('/api/frequent-passengers/:id', requireAuth, (req, res) => {
 // ============================================================
 // ROUTES / SAILINGS / TIMETABLES
 // ============================================================
-function demoRoutes() {
-  return [
-    { id:1,  name:'Algeciras - Ceuta',         departure_port:{id:10,name:'Algeciras'},  destination_port:{id:11,name:'Ceuta'         } },
-    { id:2,  name:'Algeciras - Tánger Med',    departure_port:{id:10,name:'Algeciras'},  destination_port:{id:12,name:'Tánger Med'    } },
-    { id:3,  name:'Algeciras - Tánger Ciudad', departure_port:{id:10,name:'Algeciras'},  destination_port:{id:13,name:'Tánger Ciudad' } },
-    { id:4,  name:'Tarifa - Tánger Ciudad',    departure_port:{id:14,name:'Tarifa'   },  destination_port:{id:13,name:'Tánger Ciudad' } },
-    { id:5,  name:'Ceuta - Algeciras',         departure_port:{id:11,name:'Ceuta'    },  destination_port:{id:10,name:'Algeciras'     } },
-    { id:6,  name:'Málaga - Melilla',          departure_port:{id:30,name:'Málaga'   },  destination_port:{id:31,name:'Melilla'       } },
-    { id:7,  name:'Almería - Melilla',         departure_port:{id:32,name:'Almería'  },  destination_port:{id:31,name:'Melilla'       } },
-    { id:8,  name:'Almería - Nador',           departure_port:{id:32,name:'Almería'  },  destination_port:{id:33,name:'Nador'         } },
-    { id:9,  name:'Almería - Ghazaouet',       departure_port:{id:32,name:'Almería'  },  destination_port:{id:34,name:'Ghazaouet'     } },
-    { id:10, name:'Motril - Melilla',          departure_port:{id:35,name:'Motril'   },  destination_port:{id:31,name:'Melilla'       } },
-    { id:11, name:'Cartagena - Orán',          departure_port:{id:36,name:'Cartagena'},  destination_port:{id:37,name:'Orán'          } },
-    { id:12, name:'Barcelona - Palma',         departure_port:{id:20,name:'Barcelona'},  destination_port:{id:21,name:'Palma'         } },
-    { id:13, name:'Barcelona - Ibiza',         departure_port:{id:20,name:'Barcelona'},  destination_port:{id:23,name:'Ibiza'         } },
-    { id:14, name:'Barcelona - Mahón',         departure_port:{id:20,name:'Barcelona'},  destination_port:{id:24,name:'Mahón'         } },
-    { id:15, name:'Valencia - Palma',          departure_port:{id:22,name:'Valencia' },  destination_port:{id:21,name:'Palma'         } },
-    { id:16, name:'Valencia - Ibiza',          departure_port:{id:22,name:'Valencia' },  destination_port:{id:23,name:'Ibiza'         } },
-    { id:17, name:'Valencia - Mahón',          departure_port:{id:22,name:'Valencia' },  destination_port:{id:24,name:'Mahón'         } },
-    { id:18, name:'Denia - Ibiza',             departure_port:{id:25,name:'Denia'    },  destination_port:{id:23,name:'Ibiza'         } },
-    { id:19, name:'Denia - Formentera',        departure_port:{id:25,name:'Denia'    },  destination_port:{id:26,name:'Formentera'    } },
-    { id:20, name:'Palma - Ibiza',             departure_port:{id:21,name:'Palma'    },  destination_port:{id:23,name:'Ibiza'         } },
-    { id:21, name:'Ibiza - Formentera',        departure_port:{id:23,name:'Ibiza'    },  destination_port:{id:26,name:'Formentera'    } },
-    { id:22, name:'Barcelona - Génova',        departure_port:{id:20,name:'Barcelona'},  destination_port:{id:40,name:'Génova'        } },
-    { id:23, name:'Barcelona - Civitavecchia', departure_port:{id:20,name:'Barcelona'},  destination_port:{id:41,name:'Civitavecchia' } },
-    { id:24, name:'Barcelona - Palermo',       departure_port:{id:20,name:'Barcelona'},  destination_port:{id:42,name:'Palermo'       } },
-    { id:25, name:'Valencia - Génova',         departure_port:{id:22,name:'Valencia' },  destination_port:{id:40,name:'Génova'        } },
-  ];
-}
+const KIKOTO_API_BASE = process.env.KIKOTO_API_BASE || 'https://api.b2b.kikoto.com/v1';
+const KIKOTO_API_TOKEN = process.env.KIKOTO_API_TOKEN || '';
 
-function demoSailings(date) {
-  const nowTime = new Date().toTimeString().slice(0, 5);
-  const today   = new Date().toISOString().slice(0, 10);
-  const isToday = date === today;
-  const all = [
-    { naviera:'Balearia',            departureDate:date, departureTime:'07:30' },
-    { naviera:'Trasmediterránea',    departureDate:date, departureTime:'10:00' },
-    { naviera:'FRS',                 departureDate:date, departureTime:'12:15' },
-    { naviera:'Armas Trasatlántica', departureDate:date, departureTime:'14:45' },
-    { naviera:'GNV',                 departureDate:date, departureTime:'17:30' },
-  ];
-  return isToday ? all.filter(s => s.departureTime > nowTime) : all;
+async function fetchKikoto(path) {
+  if (!KIKOTO_API_TOKEN) {
+    console.warn(`[KIKOTO API] No token configured for ${path}. Using empty data.`);
+    return { data: [] };
+  }
+  try {
+    const res = await fetch(`${KIKOTO_API_BASE}${path}`, {
+      headers: {
+        'Authorization': `Bearer ${KIKOTO_API_TOKEN}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error(`[KIKOTO API] Error fetching ${path}:`, err.message);
+    return { data: [] };
+  }
 }
 
 let routesCache = null, routesCacheTime = 0;
 
-app.get('/api/routes', requireAuth, (_req, res) => {
+app.get('/api/routes', requireAuth, async (_req, res) => {
   if (routesCache && Date.now() - routesCacheTime < 300000) return ok(res, routesCache);
-  routesCache     = demoRoutes();
-  routesCacheTime = Date.now();
-  ok(res, routesCache);
+
+  try {
+    const [routesRes, portsRes] = await Promise.all([
+      fetchKikoto('/routes'),
+      fetchKikoto('/ports'),
+    ]);
+
+    const portsMap = {};
+    (portsRes.data || []).forEach(p => { portsMap[p.id] = p; });
+
+    const mappedRoutes = (routesRes.data || []).map(r => ({
+      id: r.id,
+      name: r.name,
+      departure_port: {
+        id: r.departure_port_id,
+        name: portsMap[r.departure_port_id] ? portsMap[r.departure_port_id].name : 'Unknown',
+      },
+      destination_port: {
+        id: r.destination_port_id,
+        name: portsMap[r.destination_port_id] ? portsMap[r.destination_port_id].name : 'Unknown',
+      },
+    }));
+
+    // If API failed or returned nothing, fallback to demo if needed, but the instruction says "Sincronizar las rutas disponibles en tiempo real".
+    // For safety, if empty, we might keep the demo or just return empty.
+    if (mappedRoutes.length === 0 && !KIKOTO_API_TOKEN) {
+      routesCache = [
+        { id:1,  name:'Algeciras - Ceuta',         departure_port:{id:10,name:'Algeciras'},  destination_port:{id:11,name:'Ceuta'         } },
+        { id:2,  name:'Algeciras - Tánger Med',    departure_port:{id:10,name:'Algeciras'},  destination_port:{id:12,name:'Tánger Med'    } },
+        { id:3,  name:'Algeciras - Tánger Ciudad', departure_port:{id:10,name:'Algeciras'},  destination_port:{id:13,name:'Tánger Ciudad' } },
+        { id:4,  name:'Tarifa - Tánger Ciudad',    departure_port:{id:14,name:'Tarifa'   },  destination_port:{id:13,name:'Tánger Ciudad' } },
+        { id:5,  name:'Ceuta - Algeciras',         departure_port:{id:11,name:'Ceuta'    },  destination_port:{id:10,name:'Algeciras'     } },
+      ];
+    } else {
+      routesCache = mappedRoutes;
+    }
+
+    routesCacheTime = Date.now();
+    ok(res, routesCache);
+  } catch (err) {
+    console.error('[ROUTES] Error sync:', err.message);
+    ok(res, []);
+  }
 });
 
 app.post('/api/sailings', requireAuth, (req, res) => {

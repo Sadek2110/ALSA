@@ -659,7 +659,7 @@ async function doSearchSailings() {
     destination: destinoNm, destinationId: destinoId,
     dateIda: fechaIda, dateVuelta: fechaVuelta || null,
     withVehicle, withPet: false,
-    selectedSailing: null, passenger: null, vehicle: null, petDetails: null, saveAsFrequent: false,
+    selectedSailing: null, passengers: [], vehicle: null, petDetails: [], saveAsFrequent: false,
     searchParams,
   };
 
@@ -785,7 +785,26 @@ function showWizStep3() {
   const content = $('wiz-content');
   if (!content) return;
   const fp = state.frequentPassengers;
-  const p  = wz.passenger || {};
+  
+  // Si no hay pasajeros, mostramos el formulario para el primero
+  const paxListHtml = wz.passengers.length > 0 ? `
+    <div class="pax-list-container" style="margin-bottom:24px">
+      <div style="font-weight:700;font-size:0.875rem;color:var(--gray-700);margin-bottom:12px">Pasajeros añadidos (${wz.passengers.length})</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${wz.passengers.map((p, idx) => `
+          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:white;border:1px solid var(--gray-200);border-radius:var(--radius)">
+            <div>
+              <div style="font-weight:600;font-size:0.875rem">${esc(p.nombre)} ${esc(p.apellido1)}</div>
+              <div style="font-size:0.75rem;color:var(--gray-500)">${esc(p.tipoDoc)}: ${esc(p.numDoc)} · ${esc(p.email)}</div>
+            </div>
+            <button class="btn-icon-danger" onclick="removeWizPassenger(${idx})" title="Eliminar pasajero">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
 
   content.innerHTML = `
     <div class="card">
@@ -795,82 +814,74 @@ function showWizStep3() {
           Volver
         </button>
         <div>
-          <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Datos del pasajero</div>
-          <div style="font-size:0.8125rem;color:var(--gray-400)">${esc(wz.selectedSailing.naviera)} · ${esc(wz.selectedSailing.departureDate)} ${esc(wz.selectedSailing.departureTime)}</div>
+          <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Registro de pasajeros</div>
+          <div style="font-size:0.8125rem;color:var(--gray-400)">Añade los datos de todos los viajeros</div>
         </div>
       </div>
 
-      <div class="fp-section">
-        <div class="fp-section-header">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Pasajero frecuente
-          ${fp.length > 0 ? `<span class="badge badge-blue" style="margin-left:4px">${fp.length} guardado${fp.length>1?'s':''}</span>` : ''}
+      ${paxListHtml}
+
+      <div class="fp-section" style="background:var(--gray-50);border:1px dashed var(--gray-300);padding:16px;border-radius:var(--radius);margin-bottom:24px">
+        <div class="fp-section-header" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.8125rem">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          Cargar desde Pasajeros Frecuentes
         </div>
         ${fp.length > 0 ? `
         <div class="fp-select-wrap">
           <select id="fp-selector" class="form-input" onchange="onFpSelectorChange(this)">
-            <option value="">— Seleccionar pasajero frecuente —</option>
-            ${fp.map((q,i)=>`<option value="${i}">${esc(q.nombre)} ${esc(q.apellido1)}${q.apellido2?' '+esc(q.apellido2):''} · ${esc(q.tipoDoc||'Doc')} ${esc(q.numDoc||'')}</option>`).join('')}
+            <option value="">— Seleccionar pasajero —</option>
+            ${fp.map((q,i)=>`<option value="${i}">${esc(q.nombre)} ${esc(q.apellido1)} · ${esc(q.numDoc)}</option>`).join('')}
           </select>
-        </div>` : `
-        <p class="fp-empty">Aún no tienes pasajeros frecuentes guardados. Rellena el formulario y marca "Guardar como frecuente" para guardarlos.</p>`}
+        </div>` : `<p style="font-size:0.75rem;color:var(--gray-500);margin:0">No hay pasajeros frecuentes guardados.</p>`}
       </div>
 
-      <form id="wiz-pax-form" onsubmit="wizStep1Submit(event)" novalidate>
+      <form id="wiz-pax-form" onsubmit="addPassengerAction(event)" novalidate>
+        <div style="font-weight:700;font-size:0.8125rem;color:var(--gray-500);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.025em">Datos del nuevo pasajero</div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
-            <input type="text" id="pax-nombre" class="form-input" placeholder="Nombre" value="${esc(p.nombre||'')}">
+            <input type="text" id="pax-nombre" class="form-input" placeholder="Nombre">
             <span class="error-msg" id="e-pax-nombre"></span>
           </div>
           <div class="form-group">
             <label class="form-label">1er Apellido <span style="color:var(--danger)">*</span></label>
-            <input type="text" id="pax-ape1" class="form-input" placeholder="Primer apellido" value="${esc(p.apellido1||'')}">
+            <input type="text" id="pax-ape1" class="form-input" placeholder="Primer apellido">
             <span class="error-msg" id="e-pax-ape1"></span>
           </div>
           <div class="form-group">
             <label class="form-label">2º Apellido</label>
-            <input type="text" id="pax-ape2" class="form-input" placeholder="Segundo apellido (opcional)" value="${esc(p.apellido2||'')}">
+            <input type="text" id="pax-ape2" class="form-input" placeholder="Segundo apellido">
           </div>
           <div class="form-group">
             <label class="form-label">Correo electrónico <span style="color:var(--danger)">*</span></label>
-            <input type="email" id="pax-email" class="form-input" placeholder="correo@ejemplo.com" value="${esc(p.email||'')}">
+            <input type="email" id="pax-email" class="form-input" placeholder="correo@ejemplo.com">
             <span class="error-msg" id="e-pax-email"></span>
           </div>
           <div class="form-group">
             <label class="form-label">Confirmar correo <span style="color:var(--danger)">*</span></label>
-            <input type="email" id="pax-email2" class="form-input" placeholder="Repite el correo" value="${esc(p.email||'')}">
+            <input type="email" id="pax-email2" class="form-input" placeholder="Repite el correo">
             <span class="error-msg" id="e-pax-email2"></span>
           </div>
           <div class="form-group">
             <label class="form-label">Teléfono <span style="color:var(--danger)">*</span></label>
             <div class="input-group">
-              <select id="pax-pre" class="form-input" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none;width:108px;flex-shrink:0">
-                <option value="+34">🇪🇸 +34</option><option value="+1">🇺🇸 +1</option>
-                <option value="+44">🇬🇧 +44</option><option value="+33">🇫🇷 +33</option>
-                <option value="+351">🇵🇹 +351</option><option value="+39">🇮🇹 +39</option>
+              <select id="pax-pre" class="form-input" style="width:100px;flex-shrink:0;border-right:none;border-radius:var(--radius) 0 0 var(--radius)">
+                <option value="+34">🇪🇸 +34</option><option value="+1">🇺🇸 +1</option><option value="+33">🇫🇷 +33</option><option value="+39">🇮🇹 +39</option><option value="+351">🇵🇹 +351</option>
               </select>
-              <input type="tel" id="pax-tel" class="form-input" placeholder="612 345 678" style="border-radius:0 var(--radius) var(--radius) 0" oninput="this.value=this.value.replace(/[^0-9\\s\\-]/g,'')">
+              <input type="tel" id="pax-tel" class="form-input" style="border-radius:0 var(--radius) var(--radius) 0">
             </div>
             <span class="error-msg" id="e-pax-tel"></span>
           </div>
           <div class="form-group">
             <label class="form-label">Fecha de nacimiento <span style="color:var(--danger)">*</span></label>
-            <input type="date" id="pax-fnac" class="form-input" value="${esc(p.fnac||'')}">
+            <input type="date" id="pax-fnac" class="form-input">
             <span class="error-msg" id="e-pax-fnac"></span>
           </div>
           <div class="form-group">
             <label class="form-label">Nacionalidad <span style="color:var(--danger)">*</span></label>
             <select id="pax-nac" class="form-input">
               <option value="">— Seleccionar —</option>
-              <option value="ES" ${p.nacionalidad==='ES'?'selected':''}>Española</option>
-              <option value="FR" ${p.nacionalidad==='FR'?'selected':''}>Francesa</option>
-              <option value="IT" ${p.nacionalidad==='IT'?'selected':''}>Italiana</option>
-              <option value="PT" ${p.nacionalidad==='PT'?'selected':''}>Portuguesa</option>
-              <option value="UK" ${p.nacionalidad==='UK'?'selected':''}>Británica</option>
-              <option value="DE" ${p.nacionalidad==='DE'?'selected':''}>Alemana</option>
-              <option value="MA" ${p.nacionalidad==='MA'?'selected':''}>Marroquí</option>
-              <option value="OTHER" ${p.nacionalidad==='OTHER'?'selected':''}>Otra</option>
+              <option value="ES">Española</option><option value="FR">Francesa</option><option value="IT">Italiana</option><option value="PT">Portuguesa</option><option value="MA">Marroquí</option><option value="OTHER">Otra</option>
             </select>
             <span class="error-msg" id="e-pax-nac"></span>
           </div>
@@ -878,121 +889,58 @@ function showWizStep3() {
             <label class="form-label">Tipo de documento <span style="color:var(--danger)">*</span></label>
             <select id="pax-tipdoc" class="form-input">
               <option value="">— Seleccionar —</option>
-              <option value="DNI" ${p.tipoDoc==='DNI'?'selected':''}>DNI</option>
-              <option value="NIE" ${p.tipoDoc==='NIE'?'selected':''}>NIE</option>
-              <option value="PASAPORTE" ${p.tipoDoc==='PASAPORTE'?'selected':''}>Pasaporte</option>
-              <option value="OTROS" ${p.tipoDoc==='OTROS'?'selected':''}>Otros</option>
+              <option value="DNI">DNI</option><option value="NIE">NIE</option><option value="PASAPORTE">Pasaporte</option>
             </select>
             <span class="error-msg" id="e-pax-tipdoc"></span>
           </div>
           <div class="form-group">
             <label class="form-label">Número de documento <span style="color:var(--danger)">*</span></label>
-            <input type="text" id="pax-numdoc" class="form-input" placeholder="Ej: 12345678A" oninput="this.value=this.value.toUpperCase()" value="${esc(p.numDoc||'')}">
+            <input type="text" id="pax-numdoc" class="form-input" oninput="this.value=this.value.toUpperCase(); checkFrequentPassengerDuplicate(this.value)">
             <span class="error-msg" id="e-pax-numdoc"></span>
           </div>
           <div class="form-group">
-            <label class="form-label">Expiración del documento <span style="color:var(--danger)">*</span></label>
-            <input type="date" id="pax-expdoc" class="form-input" value="${esc(p.expDoc||'')}">
+            <label class="form-label">Expiración documento <span style="color:var(--danger)">*</span></label>
+            <input type="date" id="pax-expdoc" class="form-input">
             <span class="error-msg" id="e-pax-expdoc"></span>
           </div>
         </div>
 
-        ${wz.withPet ? `
-        <div style="margin:16px 0;padding:16px;background:var(--primary-50);border:1px solid var(--primary-100);border-radius:var(--radius)">
-          <div style="font-weight:700;font-size:0.875rem;color:var(--gray-900);margin-bottom:12px">Datos de la mascota</div>
-          <div class="form-grid">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Nº de mascotas</label>
-              <input type="number" id="pet-num" class="form-input" value="${wz.petDetails?.num||1}" min="1" max="5">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Tipo / Raza</label>
-              <input type="text" id="pet-raza" class="form-input" placeholder="Ej: Perro labrador" value="${esc(wz.petDetails?.raza||'')}">
-            </div>
-          </div>
-        </div>` : ''}
-
-        <div style="margin:16px 0 20px" id="guardar-frecuente-wrap">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
-            <input type="checkbox" id="pax-frecuente" style="width:17px;height:17px;accent-color:var(--primary)">
-            Guardar como pasajero frecuente para futuras reservas
+        <div style="margin:16px 0 24px" id="guardar-frecuente-wrap">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem">
+            <input type="checkbox" id="pax-frecuente" style="width:18px;height:18px;accent-color:var(--primary)">
+            Guardar como pasajero frecuente
           </label>
         </div>
 
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button type="button" class="btn btn-secondary" style="width:auto" onclick="showWizStep2()">← Volver</button>
-          <button type="submit" class="btn btn-primary" style="width:auto;padding:11px 28px">
-            ${wz.withVehicle ? 'Siguiente: Vehículo →' : 'Siguiente: Confirmar →'}
+        <div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--gray-100)">
+          <button type="submit" class="btn btn-secondary" style="width:auto;padding:11px 24px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Añadir pasajero
           </button>
+          
+          ${wz.passengers.length > 0 ? `
+          <button type="button" class="btn btn-primary" style="width:auto;margin-left:auto;padding:11px 32px" onclick="finalizePassengerStep()">
+            Continuar: ${wz.withVehicle ? 'Vehículo' : 'Confirmar'} →
+          </button>` : ''}
         </div>
       </form>
     </div>`;
-
-  // Restore telephone if coming back
-  if (p.telefono) {
-    const knownPrefixes = ['+34','+1','+44','+33','+49','+39','+351','+32','+31'];
-    let telPrefix = '+34', telNumber = p.telefono || '';
-    for (const pre of knownPrefixes) {
-      if (telNumber.startsWith(pre + ' ') || telNumber.startsWith(pre)) {
-        telPrefix = pre; telNumber = telNumber.slice(pre.length).trim(); break;
-      }
-    }
-    const preEl = $('pax-pre'); if (preEl) preEl.value = telPrefix;
-    const telEl = $('pax-tel'); if (telEl) telEl.value = telNumber;
-  }
 }
 
-function fillFrequentPassenger(idx) {
-  const p = state.frequentPassengers[idx];
-  if (!p) return;
-  const set = (id, v) => { const el=$(id); if(el) el.value=v||''; };
-  set('pax-nombre', p.nombre);
-  set('pax-ape1',   p.apellido1);
-  set('pax-ape2',   p.apellido2);
-  set('pax-email',  p.email);
-  set('pax-email2', p.email);
-  // Split prefix and number to avoid duplicating the prefix
-  const knownPrefixes = ['+34','+1','+44','+33','+49','+39','+351','+32','+31'];
-  let telPrefix = '+34', telNumber = p.telefono || '';
-  for (const pre of knownPrefixes) {
-    if (telNumber.startsWith(pre + ' ') || telNumber.startsWith(pre)) {
-      telPrefix  = pre;
-      telNumber  = telNumber.slice(pre.length).trim();
-      break;
-    }
-  }
-  const preEl = $('pax-pre');
-  if (preEl) preEl.value = telPrefix;
-  set('pax-tel',    telNumber);
-  set('pax-fnac',   p.fnac);
-  set('pax-nac',    p.nacionalidad);
-  set('pax-tipdoc', p.tipoDoc);
-  set('pax-numdoc', p.numDoc);
-  set('pax-expdoc', p.expDoc);
-  // Deshabilitar "guardar como frecuente" porque ya existe
-  const fpWrap = $('guardar-frecuente-wrap');
-  const fpChk  = $('pax-frecuente');
-  if (fpWrap) fpWrap.style.opacity = '0.4';
-  if (fpChk)  { fpChk.checked = false; fpChk.disabled = true; }
-  showToast('info','Datos rellenados',`Datos de ${p.nombre} ${p.apellido1} cargados.`);
+function checkFrequentPassengerDuplicate(val) {
+  const exists = state.frequentPassengers.some(p => p.numDoc === val.trim());
+  const wrap = $('guardar-frecuente-wrap');
+  if (wrap) wrap.style.display = exists ? 'none' : 'block';
 }
 
-function onFpSelectorChange(sel) {
-  if (!sel.value) {
-    // Limpiar formulario y rehabilitar guardar-como-frecuente
-    ['pax-nombre','pax-ape1','pax-ape2','pax-email','pax-email2','pax-tel','pax-fnac','pax-nac','pax-tipdoc','pax-numdoc','pax-expdoc']
-      .forEach(id => { const el=$(id); if(el) el.value=''; });
-    const fpWrap = $('guardar-frecuente-wrap');
-    const fpChk  = $('pax-frecuente');
-    if (fpWrap) fpWrap.style.opacity = '1';
-    if (fpChk)  fpChk.disabled = false;
-    return;
-  }
-  fillFrequentPassenger(Number(sel.value));
+function removeWizPassenger(idx) {
+  if (!state.bookingWizard) return;
+  state.bookingWizard.passengers.splice(idx, 1);
+  showWizStep3();
 }
 
-function wizStep1Submit(e) {
-  e.preventDefault();
+async function addPassengerAction(e) {
+  if (e) e.preventDefault();
   const nombre  = val('pax-nombre').trim();
   const ape1    = val('pax-ape1').trim();
   const email   = val('pax-email').trim();
@@ -1005,16 +953,16 @@ function wizStep1Submit(e) {
   const expdoc  = val('pax-expdoc');
   let ok = true;
 
-  if (!nombre)           { fieldErr('e-pax-nombre','pax-nombre','El nombre es obligatorio'); ok=false; } else fieldOk('e-pax-nombre','pax-nombre');
-  if (!ape1)             { fieldErr('e-pax-ape1','pax-ape1','El apellido es obligatorio'); ok=false; } else fieldOk('e-pax-ape1','pax-ape1');
-  if (!isEmail(email))   { fieldErr('e-pax-email','pax-email','Correo electrónico inválido'); ok=false; } else fieldOk('e-pax-email','pax-email');
-  if (email !== email2)  { fieldErr('e-pax-email2','pax-email2','Los correos no coinciden'); ok=false; } else fieldOk('e-pax-email2','pax-email2');
-  if (!isPhone(tel))     { fieldErr('e-pax-tel','pax-tel','Teléfono inválido (solo dígitos)'); ok=false; } else fieldOk('e-pax-tel','pax-tel');
-  if (!fnac)             { fieldErr('e-pax-fnac','pax-fnac','Fecha de nacimiento obligatoria'); ok=false; } else fieldOk('e-pax-fnac','pax-fnac');
-  if (!nac)              { fieldErr('e-pax-nac','pax-nac','Selecciona una nacionalidad'); ok=false; } else fieldOk('e-pax-nac','pax-nac');
-  if (!tipdoc)           { fieldErr('e-pax-tipdoc','pax-tipdoc','Selecciona el tipo de documento'); ok=false; } else fieldOk('e-pax-tipdoc','pax-tipdoc');
-  if (!numdoc)           { fieldErr('e-pax-numdoc','pax-numdoc','El número de documento es obligatorio'); ok=false; } else fieldOk('e-pax-numdoc','pax-numdoc');
-  if (!expdoc)           { fieldErr('e-pax-expdoc','pax-expdoc','La expiración del documento es obligatoria'); ok=false; } else fieldOk('e-pax-expdoc','pax-expdoc');
+  if (!nombre)           { fieldErr('e-pax-nombre','pax-nombre','Requerido'); ok=false; } else fieldOk('e-pax-nombre','pax-nombre');
+  if (!ape1)             { fieldErr('e-pax-ape1','pax-ape1','Requerido'); ok=false; } else fieldOk('e-pax-ape1','pax-ape1');
+  if (!isEmail(email))   { fieldErr('e-pax-email','pax-email','Inválido'); ok=false; } else fieldOk('e-pax-email','pax-email');
+  if (email !== email2)  { fieldErr('e-pax-email2','pax-email2','No coinciden'); ok=false; } else fieldOk('e-pax-email2','pax-email2');
+  if (!tel)              { fieldErr('e-pax-tel','pax-tel','Requerido'); ok=false; } else fieldOk('e-pax-tel','pax-tel');
+  if (!fnac)             { fieldErr('e-pax-fnac','pax-fnac','Requerido'); ok=false; } else fieldOk('e-pax-fnac','pax-fnac');
+  if (!nac)              { fieldErr('e-pax-nac','pax-nac','Requerido'); ok=false; } else fieldOk('e-pax-nac','pax-nac');
+  if (!tipdoc)           { fieldErr('e-pax-tipdoc','pax-tipdoc','Requerido'); ok=false; } else fieldOk('e-pax-tipdoc','pax-tipdoc');
+  if (!numdoc)           { fieldErr('e-pax-numdoc','pax-numdoc','Requerido'); ok=false; } else fieldOk('e-pax-numdoc','pax-numdoc');
+  if (!expdoc)           { fieldErr('e-pax-expdoc','pax-expdoc','Requerido'); ok=false; } else fieldOk('e-pax-expdoc','pax-expdoc');
   if (!ok) return;
 
   const pax = {
@@ -1023,18 +971,62 @@ function wizStep1Submit(e) {
     fnac, nacionalidad: nac, tipoDoc: tipdoc, numDoc: numdoc, expDoc: expdoc
   };
 
-  const pet = state.bookingWizard.withPet
-    ? { num: val('pet-num')||1, raza: val('pet-raza')||'' }
-    : null;
-
-  state.bookingWizard.passenger = pax;
-  state.bookingWizard.petDetails = pet;
-
-  if (state.bookingWizard.withVehicle) {
-    showWizStep4();
-  } else {
-    showWizStep5();
+  // Si se marcó "guardar como frecuente", hacerlo ahora
+  if ($('pax-frecuente')?.checked) {
+    try {
+      const saved = await api('POST', '/frequent-passengers', pax);
+      state.frequentPassengers.push(saved);
+      showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
+    } catch (err) { console.error('Error guardando frecuente:', err.message); }
   }
+
+  state.bookingWizard.passengers.push(pax);
+  showToast('success','Pasajero añadido',`${nombre} ha sido añadido al viaje.`);
+  showWizStep3(); // Recargar para mostrar lista y formulario vacío
+}
+
+function finalizePassengerStep() {
+  const wz = state.bookingWizard;
+  if (!wz || wz.passengers.length === 0) {
+    showToast('warning','Sin pasajeros','Añade al menos un pasajero antes de continuar.');
+    return;
+  }
+  if (wz.withVehicle) showWizStep4();
+  else showWizStep5();
+}
+
+function onFpSelectorChange(sel) {
+  if (!sel.value) return;
+  const p = state.frequentPassengers[Number(sel.value)];
+  if (!p) return;
+  
+  const set = (id, v) => { const el=$(id); if(el) el.value=v||''; };
+  set('pax-nombre', p.nombre);
+  set('pax-ape1',   p.apellido1);
+  set('pax-ape2',   p.apellido2);
+  set('pax-email',  p.email);
+  set('pax-email2', p.email);
+  
+  // Split prefix and number
+  const knownPrefixes = ['+34','+1','+44','+33','+49','+39','+351'];
+  let telPrefix = '+34', telNumber = p.telefono || '';
+  for (const pre of knownPrefixes) {
+    if (telNumber.startsWith(pre + ' ') || telNumber.startsWith(pre)) {
+      telPrefix  = pre;
+      telNumber  = telNumber.slice(pre.length).trim();
+      break;
+    }
+  }
+  const preEl = $('pax-pre'); if (preEl) preEl.value = telPrefix;
+  set('pax-tel',    telNumber);
+  set('pax-fnac',   p.fnac);
+  set('pax-nac',    p.nacionalidad);
+  set('pax-tipdoc', p.tipoDoc);
+  set('pax-numdoc', p.numDoc);
+  set('pax-expdoc', p.expDoc);
+
+  checkFrequentPassengerDuplicate(p.numDoc);
+  showToast('info','Datos cargados',`Se han cargado los datos de ${p.nombre}.`);
 }
 
 // ── Paso 4: Datos del vehículo ───────────────────────────────
@@ -1107,6 +1099,10 @@ function showWizStep4() {
               <label class="form-label">Modelo <span style="color:var(--danger)">*</span></label>
               <input type="text" id="veh-mod" class="form-input" placeholder="Ej: Sprinter" value="${esc(sv.modelo||'')}">
               <span class="error-msg" id="e-veh-mod"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Matrícula</label>
+              <input type="text" id="veh-mat" class="form-input" placeholder="Ej: 1234BBB" oninput="this.value=this.value.toUpperCase()" value="${esc(sv.matricula||'')}">
             </div>
           </div>
           <div class="form-grid-3">
@@ -1193,6 +1189,7 @@ function wizStep2Submit(e) {
   } else {
     const mar = val('veh-mar').trim();
     const mod = val('veh-mod').trim();
+    const mat = val('veh-mat').trim();
     const anc = parseFloat(val('veh-anc'));
     const lar = parseFloat(val('veh-lar'));
     const alt = parseFloat(val('veh-alt'));
@@ -1205,7 +1202,7 @@ function wizStep2Submit(e) {
     if (isNaN(alt)||alt<=0) { fieldErr('e-veh-alt','veh-alt','Valor positivo requerido'); ok=false; } else fieldOk('e-veh-alt','veh-alt');
     if (!ok) return;
 
-    state.bookingWizard.vehicle = { marca:mar, modelo:mod, matricula:'', ancho:anc, largo:lar, alto:alt };
+    state.bookingWizard.vehicle = { marca:mar, modelo:mod, matricula:mat, ancho:anc, largo:lar, alto:alt };
   }
 
   showWizStep5();
@@ -1274,20 +1271,21 @@ function showWizStep5() {
         </div>
       </div>` : ''}
 
-      <!-- Bloque: Pasajero -->
+      <!-- Bloque: Pasajeros -->
       <div class="wiz-summary-block">
         <div class="wiz-summary-block-title">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Pasajero
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-3-3.87"/><path d="M9 21v-2a4 4 0 0 1 4-4"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Pasajeros (${wz.passengers.length})
         </div>
-        <div class="wiz-summary-grid">
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Nombre</span><span class="wiz-sum-val">${esc(pax.nombre)} ${esc(pax.apellido1)}${pax.apellido2?' '+esc(pax.apellido2):''}</span></div>
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Correo</span><span class="wiz-sum-val">${esc(pax.email)}</span></div>
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Teléfono</span><span class="wiz-sum-val">${esc(pax.telefono)}</span></div>
-          <div class="wiz-summary-row"><span class="wiz-sum-label">F. Nacimiento</span><span class="wiz-sum-val">${esc(pax.fnac)}</span></div>
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Nacionalidad</span><span class="wiz-sum-val">${nacMap[pax.nacionalidad]||esc(pax.nacionalidad)}</span></div>
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Documento</span><span class="wiz-sum-val">${esc(pax.tipoDoc)} ${esc(pax.numDoc)} (exp. ${esc(pax.expDoc)})</span></div>
-        </div>
+        ${wz.passengers.map((p, idx) => `
+          <div style="${idx > 0 ? 'margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100)' : ''}">
+            <div style="font-weight:600;font-size:0.875rem;margin-bottom:6px">${idx + 1}. ${esc(p.nombre)} ${esc(p.apellido1)}</div>
+            <div class="wiz-summary-grid">
+              <div class="wiz-summary-row"><span class="wiz-sum-label">Documento</span><span class="wiz-sum-val">${esc(p.tipoDoc)} ${esc(p.numDoc)}</span></div>
+              <div class="wiz-summary-row"><span class="wiz-sum-label">Email</span><span class="wiz-sum-val">${esc(p.email)}</span></div>
+            </div>
+          </div>
+        `).join('')}
       </div>
 
       ${veh ? `
@@ -1345,7 +1343,7 @@ async function doFinalizeBooking(e) {
     departureDate: wz.selectedSailing.departureDate,
     departureTime: wz.selectedSailing.departureTime,
     returnDate:    wz.dateVuelta || null,
-    passengerData: wz.passenger,
+    passengers:    wz.passengers,
     vehicleData:   wz.vehicle   || null,
     vehicleCount:  wz._vehicleCount || (wz.vehicle ? 1 : 0),
     petDetails:    wz.petDetails || null,
@@ -1425,13 +1423,14 @@ function renderViajes() {
             </thead>
             <tbody>
               ${state.bookings.map(b=>`
-                <tr class="${b.id===newId?'bk-row-new':''}">
+                <tr class="${b.id===newId?'bk-row-new':''}" onclick="openBookingModal(${b.id})" style="cursor:pointer">
                   <td style="color:var(--gray-400);font-size:0.8125rem">
                     #${b.id}
                     ${b.id===newId ? '<span class="badge-new">Nuevo</span>' : ''}
                   </td>
                   <td>
                     <div style="font-weight:600;font-size:0.875rem">${esc(b.origin||'')} → ${esc(b.destination||'')}</div>
+                    ${b.tripType === 'idayvuelta' ? `<div style="font-weight:600;font-size:0.875rem;color:var(--primary)">${esc(b.destination||'')} → ${esc(b.origin||'')}</div>` : ''}
                     <div style="font-size:0.75rem;color:var(--gray-400)">${tripTypeLabel(b.tripType)}</div>
                   </td>
                   <td>
@@ -1441,7 +1440,8 @@ function renderViajes() {
                     </div>
                   </td>
                   <td>
-                    <div style="font-size:0.875rem">${esc(b.departureDate||'')}</div>
+                    <div style="font-size:0.875rem">Ida: ${esc(b.departureDate||'')}</div>
+                    ${b.returnDate ? `<div style="font-size:0.875rem;color:var(--primary)">Vta: ${esc(b.returnDate||'')}</div>` : ''}
                     <div style="font-size:0.75rem;color:var(--gray-400)">${esc(b.departureTime||'')}</div>
                   </td>
                   <td>
@@ -1453,7 +1453,7 @@ function renderViajes() {
                       ${b.localizador ? 'Activo' : 'Pendiente'}
                     </span>
                   </td>
-                  <td>
+                  <td onclick="event.stopPropagation()">
                     <div style="display:flex;align-items:center;gap:6px">
                       <input type="text" class="form-input localizador-input" value="${esc(b.localizador||'')}"
                         placeholder="XXXXXXXX" maxlength="10"
@@ -1465,7 +1465,7 @@ function renderViajes() {
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td onclick="event.stopPropagation()">
                     <div class="tbl-actions">
                       <button class="btn btn-danger btn-sm" onclick="deleteBooking(${b.id})" title="Eliminar">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -1580,6 +1580,13 @@ function renderFacturas() {
             <label class="form-label" for="i-fec">Fecha <span style="color:var(--danger)">*</span></label>
             <input type="date" id="i-fec" class="form-input">
             <span class="error-msg" id="e-i-fec"></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="i-booking">Relacionar con reserva</label>
+            <select id="i-booking" class="form-input">
+              <option value="">— Ninguna —</option>
+              ${state.bookings.map(b=>`<option value="${b.id}">Reserva #${b.id} — ${esc(b.origin)} → ${esc(b.destination)} (${esc(b.passengerName)})</option>`).join('')}
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label" for="i-imp">Importe (€) <span style="color:var(--danger)">*</span></label>
@@ -1802,7 +1809,7 @@ function renderVehiculos() {
       <div class="card-desc">Todos los campos de dimensiones son positivos y se expresan en metros</div>
 
       <form id="veh-form" onsubmit="doAddVehicle(event)" novalidate>
-        <div class="form-grid" style="margin-bottom:0">
+        <div class="form-grid">
           <div class="form-group">
             <label class="form-label" for="v-mar">Marca <span style="color:var(--danger)">*</span></label>
             <input type="text" id="v-mar" class="form-input" placeholder="Ej: Mercedes">
@@ -1812,6 +1819,10 @@ function renderVehiculos() {
             <label class="form-label" for="v-mod">Modelo <span style="color:var(--danger)">*</span></label>
             <input type="text" id="v-mod" class="form-input" placeholder="Ej: Sprinter">
             <span class="error-msg" id="e-v-mod"></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="v-mat">Matrícula</label>
+            <input type="text" id="v-mat" class="form-input" placeholder="Ej: 1234BBB" oninput="this.value=this.value.toUpperCase()">
           </div>
         </div>
         <div class="form-grid-3">
@@ -2058,6 +2069,7 @@ async function doAddInvoice(e) {
   else fieldOk('e-i-imp','i-imp');
   if (!ok) return;
 
+  const bid = val('i-booking');
   try {
     let newInvoice;
     if (fi && fi.files.length > 0) {
@@ -2067,10 +2079,11 @@ async function doAddInvoice(e) {
       fd.append('fecha',   fec);
       fd.append('importe', imp);
       fd.append('estado',  est);
+      if (bid) fd.append('booking_id', bid);
       fd.append('archivo', fi.files[0]);
       newInvoice = await api('POST', '/invoices', fd, true);
     } else {
-      newInvoice = await api('POST', '/invoices', { numero:num, fecha:fec, importe:imp, estado:est });
+      newInvoice = await api('POST', '/invoices', { numero:num, fecha:fec, importe:imp, estado:est, booking_id:bid });
     }
     state.invoices.push(newInvoice);
   } catch (err) {
@@ -2291,18 +2304,12 @@ function selectTripType(type, btn) {
   if (type==='ida') {
     gida.style.cssText='opacity:1;pointer-events:auto';
     gvue.style.cssText='opacity:0.4;pointer-events:none';
-    setTimeout(()=>$('h-fecha-ida')?.focus(), 50);
-  } else if (type==='vuelta') {
-    gida.style.cssText='opacity:0.4;pointer-events:none';
-    gvue.style.cssText='opacity:1;pointer-events:auto';
-    setTimeout(()=>$('h-fecha-vuelta')?.focus(), 50);
   } else {
     gida.style.cssText='opacity:1;pointer-events:auto';
     gvue.style.cssText='opacity:1;pointer-events:auto';
     // Ensure min date on vuelta is set if ida is already selected
     const idaEl = $('h-fecha-ida'), vuelEl = $('h-fecha-vuelta');
     if (idaEl?.value && vuelEl) { vuelEl.min = idaEl.value; }
-    setTimeout(()=>$('h-fecha-ida')?.focus(), 50);
   }
 }
 
@@ -2486,6 +2493,10 @@ function updateCounterBtns() {
 function openBookingModal(bookingId) {
   const b = state.bookings.find(x => x.id === bookingId);
   if (!b) return;
+
+  // Buscar otros pasajeros del mismo grupo
+  const group = b.groupId ? state.bookings.filter(x => x.groupId === b.groupId) : [b];
+
   const overlay = $('booking-modal-overlay');
   const body    = $('booking-modal-body');
   if (!overlay || !body) return;
@@ -2494,7 +2505,7 @@ function openBookingModal(bookingId) {
 
   body.innerHTML = `
     <div class="modal-header">
-      <div class="modal-title">Reserva #${b.id}</div>
+      <div class="modal-title">Reserva #${b.id} ${b.groupId ? `<span style="font-size:0.75rem;color:var(--gray-400);font-weight:400"> (Grupo: ${b.groupId})</span>` : ''}</div>
       <button class="modal-close" onclick="closeBookingModal()" aria-label="Cerrar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -2508,25 +2519,40 @@ function openBookingModal(bookingId) {
         <div class="modal-detail-grid">
           <div class="modal-detail-item"><div class="modal-detail-label">Tipo</div><div class="modal-detail-value">${tripLabel}</div></div>
           <div class="modal-detail-item"><div class="modal-detail-label">Estado</div><div class="modal-detail-value"><span class="badge ${estadoBadge(b.estado)}">${esc(b.estado)}</span></div></div>
-          <div class="modal-detail-item"><div class="modal-detail-label">Origen</div><div class="modal-detail-value">${esc(b.departurePort)}</div></div>
-          <div class="modal-detail-item"><div class="modal-detail-label">Destino</div><div class="modal-detail-value">${esc(b.destinationPort)}</div></div>
           <div class="modal-detail-item"><div class="modal-detail-label">Naviera</div><div class="modal-detail-value">${esc(b.naviera)}</div></div>
-          <div class="modal-detail-item"><div class="modal-detail-label">Fecha ida</div><div class="modal-detail-value">${esc(b.departureDate)} ${b.departureTime||''}</div></div>
-          ${b.returnDate ? `<div class="modal-detail-item"><div class="modal-detail-label">Fecha vuelta</div><div class="modal-detail-value">${esc(b.returnDate)} ${b.returnTime||''}</div></div>` : ''}
           <div class="modal-detail-item"><div class="modal-detail-label">Localizador</div><div class="modal-detail-value">${b.localizador ? `<span class="pill-code">${esc(b.localizador)}</span>` : '<span style="color:var(--gray-300)">Pendiente</span>'}</div></div>
+        </div>
+        
+        <!-- Trayectos detallados -->
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="padding:10px;background:var(--gray-50);border-radius:var(--radius);border:1px solid var(--gray-100)">
+            <div style="font-size:0.7rem;text-transform:uppercase;color:var(--gray-400);font-weight:700;margin-bottom:4px">Trayecto de Ida</div>
+            <div style="font-weight:600;font-size:0.875rem">${esc(b.origin)} → ${esc(b.destination)}</div>
+            <div style="font-size:0.8125rem;color:var(--gray-600)">${esc(b.departureDate)} ${b.departureTime||''}</div>
+          </div>
+          ${b.returnDate ? `
+          <div style="padding:10px;background:var(--primary-50);border-radius:var(--radius);border:1px solid var(--primary-100)">
+            <div style="font-size:0.7rem;text-transform:uppercase;color:var(--primary-600);font-weight:700;margin-bottom:4px">Trayecto de Vuelta</div>
+            <div style="font-weight:600;font-size:0.875rem">${esc(b.destination)} → ${esc(b.origin)}</div>
+            <div style="font-size:0.8125rem;color:var(--gray-600)">${esc(b.returnDate)} ${b.returnTime||''}</div>
+          </div>` : ''}
         </div>
       </div>
 
       <div class="modal-section">
         <div class="modal-section-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Pasajero
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87"/><path d="M9 21v-2a4 4 0 0 1 4-4"/><circle cx="9" cy="7" r="4"/></svg>
+          Pasajeros (${group.length})
         </div>
-        <div class="modal-detail-grid">
-          <div class="modal-detail-item"><div class="modal-detail-label">Nombre</div><div class="modal-detail-value">${esc(b.paxNombre)} ${esc(b.paxApellido1)} ${esc(b.paxApellido2||'')}</div></div>
-          <div class="modal-detail-item"><div class="modal-detail-label">Email</div><div class="modal-detail-value">${esc(b.paxEmail)}</div></div>
-          ${b.paxTelefono ? `<div class="modal-detail-item"><div class="modal-detail-label">Teléfono</div><div class="modal-detail-value">${esc(b.paxTelefono)}</div></div>` : ''}
-          ${b.paxTipoDoc ? `<div class="modal-detail-item"><div class="modal-detail-label">Documento</div><div class="modal-detail-value">${esc(b.paxTipoDoc)} ${esc(b.paxNumDoc||'')}</div></div>` : ''}
+        <div style="display:flex;flex-direction:column;gap:12px">
+          ${group.map((p, idx) => `
+            <div style="${idx > 0 ? 'padding-top:12px;border-top:1px solid var(--gray-100)' : ''}">
+              <div style="font-weight:600;font-size:0.875rem;margin-bottom:4px">${idx + 1}. ${esc(p.paxNombre)} ${esc(p.paxApellido1)}</div>
+              <div style="font-size:0.8125rem;color:var(--gray-500)">
+                ${esc(p.paxTipoDoc)}: ${esc(p.paxNumDoc)} · ${esc(p.paxEmail)}
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>
 
@@ -2534,7 +2560,7 @@ function openBookingModal(bookingId) {
       <div class="modal-section">
         <div class="modal-section-title">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-          Vehículo
+          Vehículo ${b.vehicleCount > 1 ? `(${b.vehicleCount})` : ''}
         </div>
         <div class="modal-detail-grid">
           <div class="modal-detail-item"><div class="modal-detail-label">Marca / Modelo</div><div class="modal-detail-value">${esc(b.vehMarca)} ${esc(b.vehModelo)}</div></div>
