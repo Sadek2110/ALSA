@@ -4,3 +4,4 @@ uploads/
 kikoto.json
 *.log
 instrucciones.txt
+.claude/

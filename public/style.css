@@ -5,11 +5,11 @@
 
 /* === CSS Variables === */
 :root {
-  --primary: #288cfc;
-  --primary-dark: #1474d4;
-  --primary-light: #5aa9fd;
-  --primary-50: #eef6ff;
-  --primary-100: #cce5ff;
+  --primary: #3d8ee8;
+  --primary-dark: #2872cc;
+  --primary-light: #6aaaf0;
+  --primary-50: #eef4fc;
+  --primary-100: #cfe0f8;
 
   --white: #ffffff;
   --gray-50: #f8f9fa;
@@ -141,7 +141,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   outline: none;
 }
 .form-input:hover { border-color: var(--primary-light); }
-.form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); background: #fafcff; }
+.form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(61,142,232,0.12); background: #fafcff; }
 .form-input::placeholder { color: var(--gray-300); font-style: italic; }
 .form-input.is-error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
 .form-input.is-valid  { border-color: var(--success); box-shadow: 0 0 0 3px rgba(16,185,129,0.08); }
@@ -157,10 +157,10 @@ select.form-input {
 }
 select.form-input:hover {
   border-color: var(--primary-light);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23288cfc' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 select.form-input:focus {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23288cfc' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
 .error-msg {
@@ -193,12 +193,12 @@ select.form-input:focus {
   width: 100%;
   padding: 12px 20px;
   font-size: 1rem;
-  box-shadow: 0 1px 2px rgba(37,99,235,0.25), 0 4px 12px rgba(37,99,235,0.15);
+  box-shadow: 0 1px 2px rgba(61,142,232,0.25), 0 4px 12px rgba(61,142,232,0.15);
   letter-spacing: 0.01em;
 }
-.btn-primary:hover  { background: var(--primary-dark); box-shadow: 0 2px 8px rgba(37,99,235,0.35), 0 8px 20px rgba(37,99,235,0.22); transform: translateY(-1px); }
-.btn-primary:active { transform: translateY(0); box-shadow: 0 1px 3px rgba(37,99,235,0.2); }
-.btn-primary:focus-visible { outline: 3px solid rgba(37,99,235,0.45); outline-offset: 2px; }
+.btn-primary:hover  { background: var(--primary-dark); box-shadow: 0 2px 8px rgba(61,142,232,0.35), 0 8px 20px rgba(61,142,232,0.22); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); box-shadow: 0 1px 3px rgba(61,142,232,0.2); }
+.btn-primary:focus-visible { outline: 3px solid rgba(61,142,232,0.45); outline-offset: 2px; }
 .btn-primary:disabled, .btn-primary[disabled] { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; pointer-events: none; }
 
 .btn-secondary { background: var(--gray-100); color: var(--gray-700); }
@@ -225,7 +225,7 @@ select.form-input:focus {
   color: var(--gray-700);
 }
 .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-50); }
-.btn-outline:focus-visible { outline: 3px solid rgba(37,99,235,0.3); outline-offset: 2px; }
+.btn-outline:focus-visible { outline: 3px solid rgba(61,142,232,0.3); outline-offset: 2px; }
 .btn-outline:disabled, .btn-outline[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 
 .btn-sm { padding: 6px 11px; font-size: 0.8125rem; font-weight: 500; }
@@ -245,7 +245,7 @@ select.form-input:focus {
 
 /* Login Right Panel */
 .login-right {
-  background: linear-gradient(145deg, #0d5fc4 0%, #1a78e8 45%, #288cfc 100%);
+  background: linear-gradient(145deg, #0d2d52 0%, #1a4a8c 45%, #3d8ee8 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -358,7 +358,7 @@ select.form-input:focus {
 /* Sidebar */
 .sidebar {
   width: var(--sidebar-width);
-  background: #1058be;
+  background: #1c3557;
   border-right: none;
   display: flex;
   flex-direction: column;
@@ -367,7 +367,7 @@ select.form-input:focus {
   height: 100vh;
   z-index: 100;
   transition: transform 0.28s ease;
-  box-shadow: 4px 0 20px rgba(30,58,138,0.18);
+  box-shadow: 4px 0 20px rgba(20,45,80,0.22);
 }
 
 .sidebar-logo {
@@ -613,7 +613,7 @@ select.form-input:focus {
 .home-activity-card { }
 .home-reserve-card {
   border: 2px solid var(--primary-100);
-  box-shadow: var(--shadow-md), 0 0 0 3px rgba(37,99,235,0.06);
+  box-shadow: var(--shadow-md), 0 0 0 3px rgba(61,142,232,0.06);
 }
 
 /* ======================================================
@@ -789,7 +789,7 @@ tbody td { padding: 13px 16px; font-size: 0.875rem; color: var(--gray-700); vert
 .badge-warning { background: var(--warning-light); color: #92400e; }
 .badge-danger  { background: var(--danger-light);  color: #991b1b; }
 .badge-gray    { background: var(--gray-100);       color: var(--gray-600); }
-.badge-blue    { background: var(--primary-100);    color: #1058be; }
+.badge-blue    { background: var(--primary-100);    color: #1c3557; }
 .badge-active  { background: var(--primary-100);    color: var(--primary-dark); }
 
 /* ======================================================
@@ -1348,7 +1348,7 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
   letter-spacing: 0.06em;
   width: fit-content;
   margin-bottom: 8px;
-  box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+  box-shadow: 0 2px 6px rgba(61,142,232,0.25);
 }
 
 .frequent-banner {
@@ -1428,7 +1428,7 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 .fp-card:hover {
   border-color: var(--primary);
   background: var(--primary-50);
-  box-shadow: 0 4px 12px rgba(37,99,235,0.1);
+  box-shadow: 0 4px 12px rgba(61,142,232,0.1);
   transform: translateY(-2px);
 }
 .fp-card:active { transform: translateY(0); box-shadow: none; }
@@ -1437,7 +1437,7 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary) 0%, #5aa9fd 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -1982,7 +1982,7 @@ select.form-input,
   -webkit-appearance: none;
   background-color: var(--white);
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23288cfc' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 16px;
@@ -2011,7 +2011,7 @@ select.form-input:focus,
   box-shadow: 0 0 0 3px rgba(40,140,252,0.12), 0 2px 10px rgba(40,140,252,0.08);
   background-color: #f8fbff;
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23288cfc' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
 }
 
 select.form-input:active {
