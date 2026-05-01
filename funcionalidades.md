@@ -10,15 +10,34 @@ Todos los `select` de la pagina web, cambiar el color del cuadro, del texto y de
 
 ## 2 Funcionalidades
 
-### 2.1 Crud en todas las secciones
+### 2.1 Crud en todas las secciones ✅
 
-Permnitir editar en todas las secciones que tengan tabla de datos.
+COMPLETADO. Edición disponible en todas las secciones:
+- Reservas: editar via modal (bloqueado si tiene vehículo asignado)
+- Miembros: editar via modal
+- Vehículos: editar via modal
+- Facturas: editar via modal
+- Localizadores: edición inline en tabla de Viajes
 
-### 2.2 Poder elegir el numero de vehiculos
+### 2.2 Poder elegir el numero de vehiculos ✅
 
-A la hora de crear una reserva, poder elegir el numero de vehiculos. Con su funcionalidad completa.
+COMPLETADO. En el paso 4 del wizard (datos del vehículo) hay un contador +/- para elegir entre 1 y 10 vehículos. El número se guarda en el campo `vehicle_count` de la reserva y se muestra en el modal de detalle.
 
 ### 2.3 Editar el resumen de los viajes
 
-Permitir editar el resumen de los viajes. Y que se refleje este cambio en la tabla de precios, y en la lista de reservas.
-No permitir que se pueda editar el resumen de los viajes en los que se les ha asignado ya un vehiculo.
+PENDIENTE. Requiere definir:
+- Qué es el "resumen" de un viaje (¿descripción libre? ¿notas?)
+- Qué es la "tabla de precios" (no existe aún en el sistema)
+
+Una vez definido, se puede añadir el campo `notes` a la tabla `bookings` y mostrarlo/editarlo en el modal de edición de reservas.
+
+## 3 Bugs corregidos
+
+### 3.1 `demoSailings` no definida ✅
+La función `demoSailings()` llamada en `/api/sailings` y `/api/timetables` no existía, causando ReferenceError. Ahora devuelve 5 navieras de demo con horarios escalonados.
+
+### 3.2 Paso 5 del wizard nunca se mostraba ✅
+`showWizStep5()` comprobaba `wz.passenger` (singular, inexistente) en lugar de `wz.passengers` (array). El paso de confirmación no se renderizaba nunca. Corregido.
+
+### 3.3 Email de notificación hardcodeado ✅
+El email de notificaciones de reserva estaba hardcodeado a `sadekjoud@gmail.com`. Ahora usa la variable de entorno `NOTIFICATION_EMAIL` (con fallback al valor anterior).

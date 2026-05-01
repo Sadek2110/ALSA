@@ -1082,7 +1082,7 @@ function showWizStep4() {
             <label class="form-label">Selecciona el vehículo</label>
             <select id="veh-select" class="form-input">
               <option value="">— Elige un vehículo —</option>
-              ${savedVehicles.map(v=>`<option value="${v.id}">${esc(v.marca)} ${esc(v.modelo)}${v.matricula ? ' ['+esc(v.matricula)+']' : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m</option>`).join('')}
+              ${savedVehicles.map(v=>`<option value="${v.id}">${esc(v.marca)} ${esc(v.modelo)}${v.matricula ? ` [${esc(v.matricula)}]` : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m</option>`).join('')}
             </select>
             <span class="error-msg" id="e-veh-select"></span>
           </div>
@@ -1211,11 +1211,11 @@ function wizStep2Submit(e) {
 // ── Paso 5: Resumen y confirmación ───────────────────────────
 function showWizStep5() {
   const wz = state.bookingWizard;
-  if (!wz || !wz.passenger) return;
+  if (!wz || !wz.passengers || wz.passengers.length === 0) return;
   renderWizStepBar(wz.withVehicle ? 5 : 4, wz.withVehicle);
   const content = $('wiz-content');
   if (!content) return;
-  const pax = wz.passenger;
+  const pax = wz.passengers[0];
   const veh = wz.vehicle;
   const sail = wz.selectedSailing;
   const tripTypeLabel = wz.tripType === 'idayvuelta' ? 'Ida y vuelta' : 'Ida';
@@ -1312,8 +1312,7 @@ function showWizStep5() {
       </div>` : ''}
 
       <form id="wiz-confirm-form" onsubmit="doFinalizeBooking(event)" novalidate>
-        <div style="margin:16px 0 20px" id="guardar-frecuente-wrap"
-          ${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? 'style="display:none"' : ''}>
+        <div style="margin:16px 0 20px${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? ';display:none' : ''}" id="guardar-frecuente-wrap">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
             <input type="checkbox" id="pax-frecuente" style="width:17px;height:17px;accent-color:var(--primary)">
             Guardar pasajero como frecuente para futuras reservas
@@ -1358,7 +1357,7 @@ async function doFinalizeBooking(e) {
     state.lastCreatedBookingId = newBooking.id;
 
     if ($('pax-frecuente')?.checked) {
-      const pax = wz.passenger;
+      const pax = wz.passengers[0];
       const exists = state.frequentPassengers.find(p => p.numDoc === pax.numDoc);
       if (!exists) {
         try {
@@ -2654,7 +2653,7 @@ async function submitEditMember(e, id) {
     const idx = state.members.findIndex(m => m.id === id);
     if (idx >= 0) state.members[idx] = updated;
     closeBookingModal();
-    render();
+    navigateTo(state.currentSection);
     showToast('success', 'Miembro actualizado', `${updated.nombre} ${updated.apellido1} guardado.`);
   } catch (err) {
     showToast('error', 'Error al actualizar', err.message);
@@ -2713,7 +2712,7 @@ async function submitEditVehicle(e, id) {
     const idx = state.vehicles.findIndex(v => v.id === id);
     if (idx >= 0) state.vehicles[idx] = updated;
     closeBookingModal();
-    render();
+    navigateTo(state.currentSection);
     showToast('success', 'Vehículo actualizado', `${updated.marca} ${updated.modelo} guardado.`);
   } catch (err) {
     showToast('error', 'Error al actualizar', err.message);
@@ -2836,7 +2835,7 @@ async function submitEditBooking(e, id) {
     const idx = state.bookings.findIndex(b => b.id === id);
     if (idx >= 0) state.bookings[idx] = { ...state.bookings[idx], ...updated };
     closeBookingModal();
-    render();
+    navigateTo(state.currentSection);
     showToast('success', 'Reserva actualizada', `Reserva #${id} guardada correctamente.`);
   } catch (err) {
     showToast('error', 'Error al actualizar', err.message);
@@ -2909,9 +2908,11 @@ async function submitEditInvoice(e, id) {
     const idx = state.invoices.findIndex(i => i.id === id);
     if (idx >= 0) state.invoices[idx] = updated;
     closeBookingModal();
-    render();
+    navigateTo(state.currentSection);
     showToast('success', 'Factura actualizada', `${updated.numero} guardada.`);
   } catch (err) {
     showToast('error', 'Error al actualizar', err.message);
   }
 }
+
+

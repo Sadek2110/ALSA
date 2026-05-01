@@ -86,7 +86,7 @@ async function sendBookingEmail(booking) {
 
   await mailer.sendMail({
     from: `"Kikoto Reservas" <${process.env.SMTP_USER || 'noreply@kikoto.es'}>`,
-    to:   'sadekjoud@gmail.com',
+    to:   process.env.NOTIFICATION_EMAIL || 'sadekjoud@gmail.com',
     subject: `[Kikoto] Nueva reserva #${b.id} — ${b.departure_port} → ${b.destination_port}`,
     html,
   });
@@ -893,6 +893,16 @@ app.get('/api/routes', requireAuth, async (_req, res) => {
     ok(res, []);
   }
 });
+
+function demoSailings(date) {
+  return [
+    { naviera: 'Balearia',             departureDate: date, departureTime: '07:30' },
+    { naviera: 'Trasmediterránea',     departureDate: date, departureTime: '10:00' },
+    { naviera: 'FRS',                  departureDate: date, departureTime: '12:15' },
+    { naviera: 'Armas Trasatlántica',  departureDate: date, departureTime: '14:45' },
+    { naviera: 'GNV',                  departureDate: date, departureTime: '17:30' },
+  ];
+}
 
 app.post('/api/sailings', requireAuth, (req, res) => {
   const { departure_port_id, destination_port_id, date } = req.body;
