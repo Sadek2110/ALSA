@@ -5,3 +5,17 @@ kikoto.json
 *.log
 instrucciones.txt
 .claude/
+
+# Base de datos
+database/
+*.db
+*.sqlite
+*.sqlite3
+schema.sql
+
+# Tests
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js

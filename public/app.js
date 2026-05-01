@@ -1467,6 +1467,9 @@ function renderViajes() {
                   </td>
                   <td onclick="event.stopPropagation()">
                     <div class="tbl-actions">
+                      <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})" title="Editar" ${b.vehMarca ? 'style="opacity:0.45;cursor:not-allowed" disabled' : ''}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
                       <button class="btn btn-danger btn-sm" onclick="deleteBooking(${b.id})" title="Eliminar">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                       </button>
@@ -1520,6 +1523,10 @@ function renderViajes() {
               </div>
             </div>
             <div class="bk-card-foot">
+              <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})" ${b.vehMarca ? 'disabled style="opacity:0.45"' : ''}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Editar
+              </button>
               <button class="btn btn-danger btn-sm" onclick="deleteBooking(${b.id})">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 Eliminar
@@ -1559,6 +1566,10 @@ function renderFacturas() {
           </div>` : ''}
           <div style="margin-top:12px;display:flex;gap:5px">
             <button class="btn btn-secondary btn-sm" onclick="showToast('info','Vista previa','${esc(inv.numero)} — ${inv.archivo||'Sin archivo adjunto'}')">Ver</button>
+            <button class="btn btn-outline btn-sm" onclick="editInvoice(${inv.id})">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Editar
+            </button>
             <button class="btn btn-danger btn-sm" onclick="deleteInvoice(${inv.id})">Eliminar</button>
           </div>
         </div>
@@ -2704,6 +2715,202 @@ async function submitEditVehicle(e, id) {
     closeBookingModal();
     render();
     showToast('success', 'Vehículo actualizado', `${updated.marca} ${updated.modelo} guardado.`);
+  } catch (err) {
+    showToast('error', 'Error al actualizar', err.message);
+  }
+}
+
+// ============================================================
+// EDIT BOOKING (inline modal)
+// ============================================================
+async function editBooking(id) {
+  const b = state.bookings.find(x => x.id === id);
+  if (!b) return;
+
+  const overlay = $('booking-modal-overlay');
+  const body    = $('booking-modal-body');
+  if (!overlay || !body) return;
+
+  const locked = !!b.vehMarca;
+  const NAVIERAS = ['Balearia','FRS','Armas Trasatlántica','GNV','Trasmediterránea'];
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Editar Reserva #${b.id}</div>
+      <button class="modal-close" onclick="closeBookingModal()" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      ${locked ? `<div style="background:var(--warning-light);border:1px solid var(--warning);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:0.875rem;color:#92400e">
+        <strong>⚠ Edición bloqueada</strong> — esta reserva tiene un vehículo asignado y no se puede modificar.
+      </div>` : ''}
+      <form id="edit-booking-form" onsubmit="submitEditBooking(event,${id})" novalidate>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Origen</label>
+            <input type="text" class="form-input" id="eb-origin" value="${esc(b.origin||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Destino</label>
+            <input type="text" class="form-input" id="eb-dest" value="${esc(b.destination||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Naviera</label>
+            <select class="form-input" id="eb-naviera" ${locked?'disabled':''}>
+              ${NAVIERAS.map(n=>`<option value="${n}" ${b.naviera===n?'selected':''}>${n}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de viaje</label>
+            <select class="form-input" id="eb-triptype" ${locked?'disabled':''}>
+              <option value="ida" ${b.tripType==='ida'?'selected':''}>Ida</option>
+              <option value="idayvuelta" ${b.tripType==='idayvuelta'?'selected':''}>Ida y vuelta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha salida</label>
+            <input type="date" class="form-input" id="eb-depdate" value="${esc(b.departureDate||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hora salida</label>
+            <input type="time" class="form-input" id="eb-deptime" value="${esc(b.departureTime||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha vuelta</label>
+            <input type="date" class="form-input" id="eb-retdate" value="${esc(b.returnDate||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hora vuelta</label>
+            <input type="time" class="form-input" id="eb-rettime" value="${esc(b.returnTime||'')}" ${locked?'disabled':''}>
+          </div>
+        </div>
+        <div style="margin-top:4px;margin-bottom:2px;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400)">Pasajero principal</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" class="form-input" id="eb-pnombre" value="${esc(b.paxNombre||b.passengerName?.split(' ')[0]||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Apellido</label>
+            <input type="text" class="form-input" id="eb-pape1" value="${esc(b.paxApellido1||b.passengerName?.split(' ').slice(1).join(' ')||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="eb-pemail" value="${esc(b.paxEmail||b.email||'')}" ${locked?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input type="text" class="form-input" id="eb-ptel" value="${esc(b.paxTelefono||'')}" ${locked?'disabled':''}>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px">
+          <button type="button" class="btn btn-secondary" style="width:auto" onclick="closeBookingModal()">Cancelar</button>
+          ${!locked ? `<button type="submit" class="btn btn-primary" style="width:auto">Guardar cambios</button>` : ''}
+        </div>
+      </form>
+    </div>`;
+
+  overlay.style.display = 'flex';
+  overlay.classList.remove('closing');
+  document.body.style.overflow = 'hidden';
+}
+
+async function submitEditBooking(e, id) {
+  e.preventDefault();
+  try {
+    const updated = await api('PUT', `/bookings/${id}`, {
+      origin:        val('eb-origin'),
+      destination:   val('eb-dest'),
+      naviera:       val('eb-naviera'),
+      tripType:      val('eb-triptype'),
+      departureDate: val('eb-depdate'),
+      departureTime: val('eb-deptime') || null,
+      returnDate:    val('eb-retdate') || null,
+      returnTime:    val('eb-rettime') || null,
+      paxNombre:     val('eb-pnombre'),
+      paxApellido1:  val('eb-pape1'),
+      paxEmail:      val('eb-pemail'),
+      paxTelefono:   val('eb-ptel') || null,
+    });
+    const idx = state.bookings.findIndex(b => b.id === id);
+    if (idx >= 0) state.bookings[idx] = { ...state.bookings[idx], ...updated };
+    closeBookingModal();
+    render();
+    showToast('success', 'Reserva actualizada', `Reserva #${id} guardada correctamente.`);
+  } catch (err) {
+    showToast('error', 'Error al actualizar', err.message);
+  }
+}
+
+// ============================================================
+// EDIT INVOICE (inline modal)
+// ============================================================
+async function editInvoice(id) {
+  const inv = state.invoices.find(x => x.id === id);
+  if (!inv) return;
+
+  const overlay = $('booking-modal-overlay');
+  const body    = $('booking-modal-body');
+  if (!overlay || !body) return;
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Editar Factura ${esc(inv.numero)}</div>
+      <button class="modal-close" onclick="closeBookingModal()" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="edit-invoice-form" onsubmit="submitEditInvoice(event,${id})" novalidate>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Número de factura</label>
+            <input type="text" class="form-input" id="ei-num" value="${esc(inv.numero)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-input" id="ei-fec" value="${esc(inv.fecha||'')}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Importe (€)</label>
+            <input type="number" class="form-input" id="ei-imp" value="${parseFloat(inv.importe)||0}" step="0.01" min="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select class="form-input" id="ei-est">
+              <option value="Pendiente" ${inv.estado==='Pendiente'?'selected':''}>Pendiente</option>
+              <option value="Pagada"    ${inv.estado==='Pagada'   ?'selected':''}>Pagada</option>
+              <option value="Anulada"   ${inv.estado==='Anulada'  ?'selected':''}>Anulada</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px">
+          <button type="button" class="btn btn-secondary" style="width:auto" onclick="closeBookingModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="width:auto">Guardar cambios</button>
+        </div>
+      </form>
+    </div>`;
+
+  overlay.style.display = 'flex';
+  overlay.classList.remove('closing');
+  document.body.style.overflow = 'hidden';
+}
+
+async function submitEditInvoice(e, id) {
+  e.preventDefault();
+  try {
+    const updated = await api('PATCH', `/invoices/${id}`, {
+      numero:  val('ei-num'),
+      fecha:   val('ei-fec'),
+      importe: parseFloat(val('ei-imp')) || 0,
+      estado:  val('ei-est'),
+    });
+    const idx = state.invoices.findIndex(i => i.id === id);
+    if (idx >= 0) state.invoices[idx] = updated;
+    closeBookingModal();
+    render();
+    showToast('success', 'Factura actualizada', `${updated.numero} guardada.`);
   } catch (err) {
     showToast('error', 'Error al actualizar', err.message);
   }

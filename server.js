@@ -380,6 +380,35 @@ app.patch('/api/bookings/:id', requireAuth, (req, res) => {
   ok(res, bookingToJson(row));
 });
 
+app.put('/api/bookings/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const b  = req.body;
+
+  const existing = store.find('bookings', r => r.id === id);
+  if (!existing) return fail(res, 'Reserva no encontrada.', 404);
+  if (existing.veh_marca) return fail(res, 'No se puede editar una reserva con vehículo asignado.', 403);
+
+  const changes = {};
+  if (b.origin)                      changes.departure_port   = b.origin;
+  if (b.destination)                 changes.destination_port = b.destination;
+  if (b.naviera)                     changes.naviera          = b.naviera;
+  if (b.departureDate)               changes.departure_date   = b.departureDate;
+  if (b.departureTime !== undefined) changes.departure_time   = b.departureTime || null;
+  if (b.returnDate    !== undefined) changes.return_date      = b.returnDate    || null;
+  if (b.returnTime    !== undefined) changes.return_time      = b.returnTime    || null;
+  if (b.tripType)                    changes.trip_type        = b.tripType;
+  if (b.paxNombre)                   changes.pax_nombre       = b.paxNombre;
+  if (b.paxApellido1)                changes.pax_apellido1    = b.paxApellido1;
+  if (b.paxApellido2 !== undefined)  changes.pax_apellido2    = b.paxApellido2  || null;
+  if (b.paxEmail)                    changes.pax_email        = b.paxEmail;
+  if (b.paxTelefono  !== undefined)  changes.pax_telefono     = b.paxTelefono   || null;
+
+  store.update('bookings', r => r.id === id, changes);
+  logAction('UPDATE', 'bookings', id, `Reserva #${id} editada`, req.session.adminId);
+  const row = store.find('bookings', r => r.id === id);
+  ok(res, bookingToJson(row));
+});
+
 app.delete('/api/bookings/:id', requireAuth, (req, res) => {
   const id = parseInt(req.params.id);
   const n  = store.remove('bookings', r => r.id === id);
@@ -917,13 +946,17 @@ app.use((err, _req, res, _next) => {
 // ============================================================
 store.load(); // inicializa la BD en el arranque
 
-app.listen(PORT, () => {
-  console.log(`\n  ╔══════════════════════════════════════════╗`);
-  console.log(`  ║   KIKOTO — Gestión de Agencias           ║`);
-  console.log(`  ║   Node.js + Express + JSON Store         ║`);
-  console.log(`  ╠══════════════════════════════════════════╣`);
-  console.log(`  ║   http://localhost:${PORT}                   ║`);
-  console.log(`  ║                                          ║`);
-  console.log(`  ║   Demo: admin@kikoto.com / Admin123      ║`);
-  console.log(`  ╚══════════════════════════════════════════╝\n`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\n  ╔══════════════════════════════════════════╗`);
+    console.log(`  ║   KIKOTO — Gestión de Agencias           ║`);
+    console.log(`  ║   Node.js + Express + JSON Store         ║`);
+    console.log(`  ╠══════════════════════════════════════════╣`);
+    console.log(`  ║   http://localhost:${PORT}                   ║`);
+    console.log(`  ║                                          ║`);
+    console.log(`  ║   Demo: admin@kikoto.com / Admin123      ║`);
+    console.log(`  ╚══════════════════════════════════════════╝\n`);
+  });
+}
+
+module.exports = app;

@@ -17,3 +17,8 @@ Permnitir editar en todas las secciones que tengan tabla de datos.
 ### 2.2 Poder elegir el numero de vehiculos
 
 A la hora de crear una reserva, poder elegir el numero de vehiculos. Con su funcionalidad completa.
+
+### 2.3 Editar el resumen de los viajes
+
+Permitir editar el resumen de los viajes. Y que se refleje este cambio en la tabla de precios, y en la lista de reservas.
+No permitir que se pueda editar el resumen de los viajes en los que se les ha asignado ya un vehiculo.
