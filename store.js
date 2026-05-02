@@ -21,16 +21,25 @@ function load() {
   if (_db) return _db;
   try {
     _db = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-  } catch {
-    _db = seed();
-    save();
-    console.log('Base de datos inicializada con datos de demo.');
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      _db = seed();
+      save();
+      console.log('Base de datos inicializada con datos de demo.');
+    } else {
+      console.error('ERROR FATAL: Base de datos corrupta. Realiza una copia de seguridad antes de continuar.');
+      console.error('Ruta:', FILE);
+      console.error('Detalle:', err.message);
+      process.exit(1);
+    }
   }
   return _db;
 }
 
 function save() {
-  fs.writeFileSync(FILE, JSON.stringify(_db, null, 2), 'utf8');
+  const tmp = FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(_db, null, 2), 'utf8');
+  fs.renameSync(tmp, FILE);
 }
 
 function now() {
@@ -51,19 +60,31 @@ function nextId(table) {
 
 // ── Operaciones CRUD ──────────────────────────────────────────
 function insert(table, data) {
-  const db  = load();
-  const id  = nextId(table);
-  const row = { id, ...data, created_at: now(), updated_at: now() };
+  const db = load();
+  if (!db[table]) db[table] = [];
+  const id = nextId(table);
+  // Descartar cualquier `id` que venga en data para que el autoincremento siempre gane
+  const { id: _discard, created_at: _ca, updated_at: _ua, ...cleanData } = data;
+  const row = { ...cleanData, id, created_at: now(), updated_at: now() };
   db[table].push(row);
-  save();
-  return row;
+  try {
+    save();
+  } catch (err) {
+    db[table].pop();
+    db._seq[table] = id - 1;
+    throw err;
+  }
+  return { ...row };
 }
 
 function update(table, pred, changes) {
   const db = load();
+  if (!db[table]) return 0;
   let n = 0;
+  // Proteger campos inmutables: id y created_at nunca se sobreescriben
+  const { id: _1, created_at: _2, ...safeChanges } = changes;
   db[table] = db[table].map(r => {
-    if (pred(r)) { n++; return { ...r, ...changes, updated_at: now() }; }
+    if (pred(r)) { n++; return { ...r, ...safeChanges, updated_at: now() }; }
     return r;
   });
   if (n) save();
@@ -72,6 +93,7 @@ function update(table, pred, changes) {
 
 function remove(table, pred) {
   const db     = load();
+  if (!db[table]) return 0;
   const before = db[table].length;
   db[table]    = db[table].filter(r => !pred(r));
   const n      = before - db[table].length;
@@ -80,11 +102,17 @@ function remove(table, pred) {
 }
 
 function all(table, pred = () => true) {
-  return load()[table].filter(pred);
+  const db = load();
+  // No crear tabla fantasma: leer sin mutar _db
+  const rows = db[table] || [];
+  return rows.filter(pred).map(r => ({ ...r }));
 }
 
 function find(table, pred) {
-  return load()[table].find(pred) ?? null;
+  const db = load();
+  const rows = db[table] || [];
+  const row = rows.find(pred);
+  return row ? { ...row } : null;
 }
 
 // ── Datos de demo ────────────────────────────────────────────

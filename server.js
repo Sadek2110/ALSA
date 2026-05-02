@@ -39,6 +39,7 @@ const mailer = nodemailer.createTransport({
 });
 
 async function sendBookingEmail(booking) {
+  if (!booking) return;
   const b = booking;
   const veh = (b.veh_marca && b.veh_modelo)
     ? `${b.veh_marca} ${b.veh_modelo} — ${b.veh_largo}m × ${b.veh_ancho}m × ${b.veh_alto}m`
@@ -92,6 +93,11 @@ async function sendBookingEmail(booking) {
   });
 }
 
+if (!process.env.SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET no configurado. Define SESSION_SECRET en tu .env antes de arrancar.');
+  process.exit(1);
+}
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
@@ -102,10 +108,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'kikoto-secret-2024-node',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 8 * 60 * 60 * 1000, httpOnly: true },
+  cookie: { maxAge: 8 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' },
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -185,6 +191,8 @@ app.post('/api/auth/login', (req, res) => {
 
   // Modo demo
   if (email === DEMO_EMAIL.toLowerCase() && password === DEMO_PASSWORD) {
+    const demoUser = store.find('users', u => u.email.toLowerCase() === DEMO_EMAIL.toLowerCase() && u.is_active);
+    if (!demoUser) return fail(res, 'Cuenta desactivada.', 403);
     req.session.adminId   = 1;
     req.session.adminName = 'Admin Principal';
     req.session.email     = DEMO_EMAIL;
@@ -264,6 +272,7 @@ function bookingToJson(r) {
     petNum:        r.pet_num  || null,
     petRaza:       r.pet_raza || null,
     vehicleCount:  r.vehicle_count || (r.veh_marca ? 1 : 0),
+    notes:         r.notes || null,
     groupId:       r.group_id || null,
     passengerData: {
       nombre:       r.pax_nombre       || '',
@@ -354,7 +363,7 @@ app.post('/api/bookings', requireAuth, (req, res) => {
     }
   });
 
-  ok(res, results[0], 201);
+  ok(res, results, 201);
 });
 
 app.patch('/api/bookings/:id', requireAuth, (req, res) => {
@@ -364,8 +373,12 @@ app.patch('/api/bookings/:id', requireAuth, (req, res) => {
   if (Object.prototype.hasOwnProperty.call(b, 'localizador')) {
     const loc = (b.localizador || '').toUpperCase().trim();
     if (loc && !isValidLoc(loc)) return fail(res, 'Formato de localizador inválido (solo A-Z y 0-9, hasta 10 caracteres).');
-    const estado = loc ? 'Confirmado' : 'Pendiente';
-    const n = store.update('bookings', r => r.id === id, { localizador: loc || null, estado });
+    const locChanges = { localizador: loc || null };
+    // Solo cambiar estado automáticamente si no se envía estado explícito en el body
+    if (!Object.prototype.hasOwnProperty.call(b, 'estado')) {
+      locChanges.estado = loc ? 'Confirmado' : 'Pendiente';
+    }
+    const n = store.update('bookings', r => r.id === id, locChanges);
     if (!n) return fail(res, 'Reserva no encontrada.', 404);
     logAction('BOOKING_LOCALIZADOR', 'bookings', id, `Localizador actualizado: ${loc}`, req.session.adminId);
   }
@@ -386,7 +399,23 @@ app.put('/api/bookings/:id', requireAuth, (req, res) => {
 
   const existing = store.find('bookings', r => r.id === id);
   if (!existing) return fail(res, 'Reserva no encontrada.', 404);
-  if (existing.veh_marca) return fail(res, 'No se puede editar una reserva con vehículo asignado.', 403);
+
+  // Solo bloquear campos de vehículo si la reserva tiene vehículo asignado
+  if (existing.veh_marca) {
+    const forbidden = ['vehMarca','vehModelo','vehMatricula','vehAncho','vehLargo','vehAlto','vehicleCount'];
+    const attempted = forbidden.filter(f => b[f] !== undefined);
+    if (attempted.length) return fail(res, 'No se pueden modificar los datos del vehículo de una reserva confirmada.', 403);
+  }
+
+  // Validaciones equivalentes a POST
+  if (b.tripType && !['ida','idayvuelta'].includes(b.tripType))
+    return fail(res, 'tripType inválido (solo ida o idayvuelta).');
+  const origin      = b.origin      || existing.departure_port;
+  const destination = b.destination || existing.destination_port;
+  if (origin && destination && origin.toLowerCase() === destination.toLowerCase())
+    return fail(res, 'El origen y el destino no pueden ser el mismo puerto.');
+  if (b.paxEmail && !isValidEmail(b.paxEmail))
+    return fail(res, 'Email del pasajero inválido.');
 
   const changes = {};
   if (b.origin)                      changes.departure_port   = b.origin;
@@ -401,7 +430,9 @@ app.put('/api/bookings/:id', requireAuth, (req, res) => {
   if (b.paxApellido1)                changes.pax_apellido1    = b.paxApellido1;
   if (b.paxApellido2 !== undefined)  changes.pax_apellido2    = b.paxApellido2  || null;
   if (b.paxEmail)                    changes.pax_email        = b.paxEmail;
-  if (b.paxTelefono  !== undefined)  changes.pax_telefono     = b.paxTelefono   || null;
+  if (b.paxTelefono    !== undefined) changes.pax_telefono   = b.paxTelefono   || null;
+  if (!existing.veh_marca && b.vehicleCount !== undefined) changes.vehicle_count = parseInt(b.vehicleCount) || 0;
+  if (b.notes          !== undefined) changes.notes          = b.notes || null;
 
   store.update('bookings', r => r.id === id, changes);
   logAction('UPDATE', 'bookings', id, `Reserva #${id} editada`, req.session.adminId);
@@ -495,8 +526,6 @@ app.put('/api/members/:id', requireAuth, (req, res) => {
   if (b.apellido1 !== undefined)      changes.apellido1 = (b.apellido1||'').trim();
   if (b.apellido2 !== undefined)      changes.apellido2 = (b.apellido2||'').trim() || null;
   if (b.dni !== undefined)            changes.dni = (b.dni||'').toUpperCase().trim();
-  if (b.telefono !== undefined)       changes.telefono = (b.telefono||'').trim();
-  if (b.telefonoPrefix !== undefined) changes.telefono_prefix = (b.telefonoPrefix||'').trim();
   if (b.email !== undefined)          changes.email = (b.email||'').trim() || null;
   if (b.fechaNacimiento !== undefined) changes.fecha_nacimiento = b.fechaNacimiento;
   if (b.fechaExpiracion !== undefined) changes.fecha_expiracion = b.fechaExpiracion;
@@ -505,11 +534,44 @@ app.put('/api/members/:id', requireAuth, (req, res) => {
   if (b.numDoc !== undefined)         changes.num_doc = (b.numDoc||'').toUpperCase().trim();
   if (b.expDoc !== undefined)         changes.exp_doc = (b.expDoc||'').trim() || null;
 
-  // Validar DNI único si se cambia
-  if (changes.dni && changes.dni !== existing.dni) {
-    if (!isValidDni(changes.dni)) return fail(res, 'DNI inválido (8 dígitos + letra)');
-    if (store.find('members', m => m.id !== id && m.dni === changes.dni)) return fail(res, 'Ya existe un miembro con ese DNI.', 409);
+  // Extraer prefijo de teléfono igual que POST
+  if (b.telefono !== undefined) {
+    let pre = existing.telefono_prefix || '+34';
+    let telNum = (b.telefono || '').trim();
+    const mTel = telNum.match(/^(\+\d{1,4})\s*(.*)$/);
+    if (mTel) { pre = mTel[1]; telNum = mTel[2]; }
+    changes.telefono = telNum;
+    changes.telefono_prefix = pre;
   }
+  if (b.telefonoPrefix !== undefined) changes.telefono_prefix = (b.telefonoPrefix||'').trim();
+
+  // Validar DNI: no puede quedar vacío, debe tener formato correcto y ser único
+  if (changes.dni !== undefined) {
+    if (!changes.dni) return fail(res, 'DNI obligatorio.');
+    if (!isValidDni(changes.dni)) return fail(res, 'DNI inválido (8 dígitos + letra).');
+    if (store.find('members', m => m.id !== id && m.dni === changes.dni))
+      return fail(res, 'Ya existe un miembro con ese DNI.', 409);
+  }
+
+  // Validar unicidad de num_doc
+  if (changes.num_doc) {
+    if (store.find('members', m => m.id !== id && m.num_doc === changes.num_doc))
+      return fail(res, 'Ya existe un miembro con ese documento.', 409);
+  }
+
+  // Validar fechas
+  if (changes.fecha_nacimiento && !isValidDate(changes.fecha_nacimiento))
+    return fail(res, 'Fecha de nacimiento inválida (YYYY-MM-DD).');
+  if (changes.fecha_expiracion && !isValidDate(changes.fecha_expiracion))
+    return fail(res, 'Fecha de expiración inválida (YYYY-MM-DD).');
+  const fnac = changes.fecha_nacimiento || existing.fecha_nacimiento;
+  const fexp = changes.fecha_expiracion || existing.fecha_expiracion;
+  if (fexp && fnac && fexp <= fnac)
+    return fail(res, 'La fecha de expiración debe ser posterior al nacimiento.');
+
+  // Validar email si se proporciona
+  if (changes.email && !isValidEmail(changes.email))
+    return fail(res, 'Email inválido.');
 
   store.update('members', m => m.id === id, changes);
   logAction('UPDATE', 'members', id, `Miembro #${id} actualizado`, req.session.adminId);
@@ -561,7 +623,11 @@ app.put('/api/vehicles/:id', requireAuth, (req, res) => {
   if (req.body.matricula !== undefined) changes.matricula = (req.body.matricula||'').toUpperCase().trim() || null;
   if (req.body.ancho !== undefined)     changes.ancho = parseFloat(req.body.ancho)||0;
   if (req.body.largo !== undefined)     changes.largo = parseFloat(req.body.largo)||0;
-  if (req.body.alto !== undefined)      changes.alto = parseFloat(req.body.alto)||0;
+  if (req.body.alto !== undefined)      changes.alto  = parseFloat(req.body.alto) ||0;
+
+  if (changes.ancho !== undefined && changes.ancho <= 0) return fail(res, 'Ancho debe ser mayor que 0.');
+  if (changes.largo !== undefined && changes.largo <= 0) return fail(res, 'Largo debe ser mayor que 0.');
+  if (changes.alto  !== undefined && changes.alto  <= 0) return fail(res, 'Alto debe ser mayor que 0.');
 
   store.update('vehicles', v => v.id === id, changes);
   logAction('UPDATE', 'vehicles', id, `Vehículo #${id} actualizado`, req.session.adminId);
@@ -581,7 +647,7 @@ app.delete('/api/vehicles/:id', requireAuth, (req, res) => {
 // INVOICES — /api/invoices
 // ============================================================
 function invoiceToJson(r) {
-  return { id:r.id, numero:r.invoice_number, fecha:r.fecha, importe:parseFloat(r.importe)||0, estado:r.estado, archivo:r.archivo_nombre };
+  return { id:r.id, numero:r.invoice_number, fecha:r.fecha, importe:parseFloat(r.importe)||0, estado:r.estado, archivo:r.archivo_nombre, bookingId: r.booking_id || null };
 }
 
 app.get('/api/invoices', requireAuth, (_req, res) => {
@@ -625,6 +691,16 @@ app.post('/api/invoices', requireAuth, upload.single('archivo'), (req, res) => {
   }
 
   const bid = req.body.booking_id ? parseInt(req.body.booking_id) : null;
+  if (bid !== null && isNaN(bid)) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return fail(res, 'booking_id debe ser un número entero.');
+  }
+  if (bid !== null) {
+    if (!store.find('bookings', b => b.id === bid)) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      return fail(res, `Reserva #${bid} no encontrada.`, 404);
+    }
+  }
 
   const row = store.insert('invoices', {
     invoice_number: num, fecha: fec, importe: imp, estado: est,
@@ -660,9 +736,22 @@ app.patch('/api/invoices/:id', requireAuth, (req, res) => {
     if (!['Pendiente','Pagada','Anulada'].includes(req.body.estado)) return fail(res, 'Estado inválido (Pendiente, Pagada o Anulada)');
     changes.estado = req.body.estado;
   }
-  if (req.body.numero !== undefined) changes.invoice_number = (req.body.numero||'').trim();
-  if (req.body.fecha !== undefined)  changes.fecha = req.body.fecha;
-  if (req.body.importe !== undefined) changes.importe = parseFloat(req.body.importe)||0;
+  if (req.body.numero !== undefined) {
+    const num = (req.body.numero || '').trim();
+    if (!num) return fail(res, 'Número de factura obligatorio.');
+    if (store.find('invoices', i => i.invoice_number === num && i.id !== id))
+      return fail(res, 'Ya existe una factura con ese número.', 409);
+    changes.invoice_number = num;
+  }
+  if (req.body.fecha !== undefined) {
+    if (!isValidDate(req.body.fecha)) return fail(res, 'Formato de fecha inválido (YYYY-MM-DD).');
+    changes.fecha = req.body.fecha;
+  }
+  if (req.body.importe !== undefined) {
+    const imp = parseFloat(req.body.importe);
+    if (!imp || imp <= 0) return fail(res, 'Importe debe ser mayor que 0.');
+    changes.importe = imp;
+  }
 
   store.update('invoices', i => i.id === id, changes);
   logAction('UPDATE', 'invoices', id, `Factura #${id} actualizada — ${changes.estado || existing.estado}`, req.session.adminId);
@@ -712,13 +801,24 @@ app.post('/api/admins', requireAuth, (req, res) => {
     activated_at: null, last_login: null,
   });
   logAction('INVITE', 'administrators', row.id, `Invitación enviada a ${email}`, req.session.adminId);
-  console.log(`[EMAIL SIMULADO] Para: ${email} | Token: ${token} | Admin: ${nombre}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[EMAIL SIMULADO] Para: ${email} | Token: ${token} | Admin: ${nombre}`);
+  }
   ok(res, { ...adminToJson({ ...row, _lastAction: 'Sin actividad' }), invitationToken: token }, 201);
 });
 
 app.patch('/api/admins/:id', requireAuth, (req, res) => {
   const id = parseInt(req.params.id);
   const b  = req.body;
+
+  // Verificar existencia antes de cualquier mutación
+  const adminCheck = store.find('administrators', a => a.id === id);
+  if (!adminCheck) return fail(res, 'Administrador no encontrado.', 404);
+
+  // Rechazar combinación ambigua
+  if (Object.prototype.hasOwnProperty.call(b, 'activo') && b.password !== undefined) {
+    return fail(res, 'No se puede activar/desactivar y cambiar contraseña en la misma petición.');
+  }
 
   if (Object.prototype.hasOwnProperty.call(b, 'activo')) {
     store.update('administrators', a => a.id === id, { is_active: b.activo ? 1 : 0 });
@@ -728,8 +828,6 @@ app.patch('/api/admins/:id', requireAuth, (req, res) => {
     if ((b.password || '').length < 8) return fail(res, 'La contraseña debe tener al menos 8 caracteres.');
 
     const admin = store.find('administrators', a => a.id === id);
-    if (!admin) return fail(res, 'Administrador no encontrado.', 404);
-
     const tokenHash = crypto.createHash('sha256').update(b.token).digest('hex');
     if (!admin.invitation_token || admin.invitation_token !== tokenHash) {
       return fail(res, 'Token de activación inválido.', 403);
@@ -752,7 +850,6 @@ app.patch('/api/admins/:id', requireAuth, (req, res) => {
   }
 
   const row = store.find('administrators', a => a.id === id);
-  if (!row) return fail(res, 'Administrador no encontrado.', 404);
   const lastAct = store.all('admin_actions', x => x.admin_id === id).sort((a,b) => b.id - a.id)[0];
   ok(res, adminToJson({ ...row, _lastAction: lastAct ? lastAct.description : 'Sin actividad' }));
 });
@@ -795,7 +892,7 @@ app.post('/api/frequent-passengers', requireAuth, (req, res) => {
   const expDoc = (b.expDoc     ||'').trim();
 
   if (!nombre || !ape1 || !numDoc) return fail(res, 'Nombre, apellido y número de documento son obligatorios.');
-  if (!isValidEmail(email)) return fail(res, 'Email inválido.');
+  if (email && !isValidEmail(email)) return fail(res, 'Email inválido.');
   if (store.find('frequent_passengers', p => p.num_doc === numDoc)) {
     return fail(res, `Ya existe un pasajero frecuente con ese documento (${numDoc}).`, 409);
   }

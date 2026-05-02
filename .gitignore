@@ -12,10 +12,3 @@ database/
 *.sqlite
 *.sqlite3
 schema.sql
-
-# Tests
-test/
-tests/
-__tests__/
-*.test.js
-*.spec.js

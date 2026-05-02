@@ -629,7 +629,9 @@ function hideDropdown(id) {
   const el = $(id); if(el) { el.innerHTML=''; el.classList.remove('open'); }
 }
 
+let _searchInProgress = false;
 async function doSearchSailings() {
+  if (_searchInProgress) return;
   const origenId    = val('h-origen-id');
   const destinoId   = val('h-destino-id');
   const origenNm    = val('h-origen');
@@ -673,6 +675,7 @@ async function doSearchSailings() {
     <div style="font-size:0.8125rem;color:var(--gray-400)">${esc(origenNm)} → ${esc(destinoNm)} · ${esc(fechaIda)}</div>
   </div>`;
 
+  _searchInProgress = true;
   try {
     const body = { departure_port_id: Number(origenId), destination_port_id: Number(destinoId), date: fechaIda };
     const [sailingsRes, timetablesRes] = await Promise.allSettled([
@@ -702,6 +705,8 @@ async function doSearchSailings() {
       <div style="color:var(--gray-400);font-size:0.875rem;margin-bottom:20px">${esc(err.message)}</div>
       <button class="btn btn-secondary" style="width:auto" onclick="showWizStep1()">Volver a búsqueda</button>
     </div>`;
+  } finally {
+    _searchInProgress = false;
   }
 }
 
@@ -957,7 +962,7 @@ async function addPassengerAction(e) {
   if (!ape1)             { fieldErr('e-pax-ape1','pax-ape1','Requerido'); ok=false; } else fieldOk('e-pax-ape1','pax-ape1');
   if (!isEmail(email))   { fieldErr('e-pax-email','pax-email','Inválido'); ok=false; } else fieldOk('e-pax-email','pax-email');
   if (email !== email2)  { fieldErr('e-pax-email2','pax-email2','No coinciden'); ok=false; } else fieldOk('e-pax-email2','pax-email2');
-  if (!tel)              { fieldErr('e-pax-tel','pax-tel','Requerido'); ok=false; } else fieldOk('e-pax-tel','pax-tel');
+  if (!tel || !isPhone(tel)) { fieldErr('e-pax-tel','pax-tel','Teléfono inválido (solo dígitos, 6-15 caracteres)'); ok=false; } else fieldOk('e-pax-tel','pax-tel');
   if (!fnac)             { fieldErr('e-pax-fnac','pax-fnac','Requerido'); ok=false; } else fieldOk('e-pax-fnac','pax-fnac');
   if (!nac)              { fieldErr('e-pax-nac','pax-nac','Requerido'); ok=false; } else fieldOk('e-pax-nac','pax-nac');
   if (!tipdoc)           { fieldErr('e-pax-tipdoc','pax-tipdoc','Requerido'); ok=false; } else fieldOk('e-pax-tipdoc','pax-tipdoc');
@@ -1665,7 +1670,7 @@ function renderMiembros() {
             <tbody>
               ${state.members.map(m=>`
                 <tr>
-                  <td><span style="font-weight:600;color:var(--gray-900)">${esc(m.nombre)} ${esc(m.apellido)}</span></td>
+                  <td><span style="font-weight:600;color:var(--gray-900)">${esc(m.nombre)} ${esc(m.apellido || m.apellido1 || '')}</span></td>
                   <td><span class="pill-code">${esc(m.dni)}</span></td>
                   <td style="font-size:0.875rem">${esc(m.telefono)}</td>
                   <td style="font-size:0.875rem">${fmtDateShort(m.fechaNacimiento)}</td>
@@ -1962,44 +1967,14 @@ function renderAdmins() {
 // FORM HANDLERS
 // ============================================================
 
-/* --- VIAJES --- */
-function doAddTrip(e) {
-  e.preventDefault();
-  const loc  = val('t-loc');
-  const fida = val('t-fida');
-  const fvue = val('t-fvue');
-  const est  = val('t-est');
-  const veh  = $('t-veh').checked;
-  const mas  = $('t-mas').checked;
-  let ok = true;
-
-  if (!isLocalizador(loc)) { fieldErr('e-t-loc','t-loc','5-10 caracteres alfanuméricos en mayúsculas (A-Z 0-9)'); ok=false; }
-  else fieldOk('e-t-loc','t-loc');
-
-  if (!fida) { fieldErr('e-t-fida','t-fida','La fecha de ida es obligatoria'); ok=false; }
-  else fieldOk('e-t-fida','t-fida');
-
-  if (fvue && fida && fvue <= fida) { fieldErr('e-t-fvue','t-fvue','La vuelta debe ser posterior a la ida'); ok=false; }
-  else fieldOk('e-t-fvue','t-fvue');
-
-  if (!ok) return;
-
-  state.trips.push({ id:state.nextId.trips++, localizador:loc, fechaIda:fida, fechaVuelta:fvue, estado:est, vehiculo:veh, mascota:mas });
-  saveToStorage();
-  navigateTo('viajes');
-  showToast('success','Viaje registrado',`El viaje ${loc} ha sido añadido correctamente.`);
-}
-
-function deleteTrip(id) {
-  if (!confirm('¿Eliminar este viaje? Esta acción no se puede deshacer.')) return;
-  state.trips = state.trips.filter(t=>t.id!==id);
-  saveToStorage();
-  navigateTo('viajes');
-  showToast('success','Viaje eliminado','El viaje ha sido eliminado del sistema.');
-}
-
 /* --- BOOKINGS --- */
-async function updateBookingLocalizador(id, value) {
+const _locTimers = {};
+function updateBookingLocalizador(id, value) {
+  clearTimeout(_locTimers[id]);
+  _locTimers[id] = setTimeout(() => _doUpdateLocalizador(id, value), 400);
+}
+
+async function _doUpdateLocalizador(id, value) {
   const b = state.bookings.find(b=>b.id===id);
   if (!b) return;
   const loc = value.toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -2007,7 +1982,7 @@ async function updateBookingLocalizador(id, value) {
   try {
     const updated = await api('PATCH', `/bookings/${id}`, { localizador: loc });
     b.localizador = updated.localizador || '';
-    b.estado      = updated.estado;
+    b.estado      = updated.estado || b.estado;
   } catch (err) {
     showToast('error', 'Error', err.message); return;
   }
@@ -2028,12 +2003,16 @@ async function updateBookingLocalizador(id, value) {
   else showToast('info','Localizador borrado',`Reserva #${id} vuelve a estado Pendiente.`);
 }
 
-function updateBookingStatus(id, estado) {
-  const b = state.bookings.find(b=>b.id===id);
-  if (!b) return;
-  b.estado = estado;
-  saveToStorage();
-  showToast('success','Estado actualizado',`Reserva #${id} → ${estado}`);
+async function updateBookingStatus(id, estado) {
+  try {
+    const updated = await api('PATCH', `/bookings/${id}`, { estado });
+    const idx = state.bookings.findIndex(bk => bk.id === id);
+    if (idx !== -1) state.bookings[idx] = { ...state.bookings[idx], ...updated };
+    renderViajes();
+    showToast('success','Estado actualizado',`Reserva #${id} → ${estado}`);
+  } catch (err) {
+    showToast('error','Error al actualizar estado', err.message);
+  }
 }
 
 async function deleteBooking(id) {
@@ -2046,19 +2025,6 @@ async function deleteBooking(id) {
   }
   navigateTo('viajes');
   showToast('success','Reserva eliminada','La reserva ha sido eliminada del sistema.');
-}
-
-function editTrip(id) {
-  const t = state.trips.find(t=>t.id===id);
-  if (!t) return;
-  const stateMap = { 'Confirmado':'Pendiente', 'Pendiente':'Cancelado', 'Cancelado':'Pendiente' };
-  const next = stateMap[t.estado] || 'Pendiente';
-  if (confirm(`Cambiar estado de "${t.localizador}" de "${t.estado}" a "${next}"?`)) {
-    t.estado = next;
-    saveToStorage();
-    navigateTo('viajes');
-    showToast('success','Estado actualizado',`${t.localizador} ahora está ${next}.`);
-  }
 }
 
 /* --- FACTURAS --- */
@@ -2082,16 +2048,17 @@ async function doAddInvoice(e) {
   const bid = val('i-booking');
   try {
     let newInvoice;
-    if (fi && fi.files.length > 0) {
-      // Subida real con multipart/form-data
+    const pendingFile = state._pendingInvoiceFile || (fi && fi.files.length > 0 ? fi.files[0] : null);
+    if (pendingFile) {
       const fd = new FormData();
       fd.append('numero',  num);
       fd.append('fecha',   fec);
       fd.append('importe', imp);
       fd.append('estado',  est);
       if (bid) fd.append('booking_id', bid);
-      fd.append('archivo', fi.files[0]);
+      fd.append('archivo', pendingFile);
       newInvoice = await api('POST', '/invoices', fd, true);
+      state._pendingInvoiceFile = null;
     } else {
       newInvoice = await api('POST', '/invoices', { numero:num, fecha:fec, importe:imp, estado:est, booking_id:bid });
     }
@@ -2326,19 +2293,34 @@ function selectTripType(type, btn) {
 // ============================================================
 // FILE UPLOAD
 // ============================================================
-function onFileSelect(input) {
-  if (!input.files.length) return;
-  const f = input.files[0];
+const ALLOWED_INVOICE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_INVOICE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+function _setInvoiceFile(f) {
+  if (!f) return;
+  if (!ALLOWED_INVOICE_TYPES.includes(f.type)) {
+    showToast('error', 'Formato no permitido', 'Solo se aceptan PDF, JPG o PNG.');
+    return;
+  }
+  if (f.size > MAX_INVOICE_SIZE) {
+    showToast('error', 'Archivo demasiado grande', 'El tamaño máximo es 10 MB.');
+    return;
+  }
+  state._pendingInvoiceFile = f;
   const el = $('file-selected');
   if (el) { el.textContent = `✓ ${f.name} (${(f.size/1024).toFixed(0)} KB)`; el.style.display='block'; }
+}
+
+function onFileSelect(input) {
+  if (!input.files.length) return;
+  _setInvoiceFile(input.files[0]);
 }
 function dragOver(e)  { e.preventDefault(); $('upload-area')&&$('upload-area').classList.add('over'); }
 function dragLeave()  { $('upload-area')&&$('upload-area').classList.remove('over'); }
 function doDrop(e)    {
   e.preventDefault();
   $('upload-area')&&$('upload-area').classList.remove('over');
-  const f = e.dataTransfer.files[0];
-  if (f) { const el=$('file-selected'); if(el){el.textContent=`✓ ${f.name} (${(f.size/1024).toFixed(0)} KB)`;el.style.display='block';} }
+  _setInvoiceFile(e.dataTransfer.files[0]);
 }
 
 // ============================================================
@@ -2704,10 +2686,17 @@ async function editVehicle(id) {
 
 async function submitEditVehicle(e, id) {
   e.preventDefault();
+  const ancho = parseFloat(val('ev-ancho'));
+  const largo = parseFloat(val('ev-largo'));
+  const alto  = parseFloat(val('ev-alto'));
+  if (ancho <= 0 || isNaN(ancho) || largo <= 0 || isNaN(largo) || alto <= 0 || isNaN(alto)) {
+    showToast('error', 'Dimensiones inválidas', 'Ancho, largo y alto deben ser mayores que 0.');
+    return;
+  }
   try {
     const updated = await api('PUT', `/vehicles/${id}`, {
       marca: val('ev-marca'), modelo: val('ev-modelo'), matricula: val('ev-mat'),
-      ancho: val('ev-ancho'), largo: val('ev-largo'), alto: val('ev-alto'),
+      ancho, largo, alto,
     });
     const idx = state.vehicles.findIndex(v => v.id === id);
     if (idx >= 0) state.vehicles[idx] = updated;
