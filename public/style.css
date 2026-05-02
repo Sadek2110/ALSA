@@ -652,10 +652,10 @@ select.form-input.is-error:focus {
 .nav-item-reservar:hover { background: white !important; color: var(--primary) !important; }
 .nav-item-reservar.active { background: white; color: var(--primary); }
 
-/* Home bottom row: activities + CTA */
+/* Home bottom row: activity feed */
 .home-bottom-row {
   display: grid;
-  grid-template-columns: 1fr 1.4fr;
+  grid-template-columns: 1fr;
   gap: 20px;
   align-items: start;
 }
@@ -1562,8 +1562,9 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 .home-cta-card {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 28px 28px;
+  gap: 24px;
+  padding: 32px 36px;
+  margin-bottom: 24px;
   cursor: pointer;
   border: 2px solid var(--primary-100);
   background: linear-gradient(135deg, var(--primary-50) 0%, #fff 60%);
@@ -1577,8 +1578,8 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 }
 
 .home-cta-icon {
-  width: 60px;
-  height: 60px;
+  width: 68px;
+  height: 68px;
   border-radius: var(--radius-lg);
   background: var(--primary);
   display: flex;
@@ -1591,7 +1592,7 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 .home-cta-content { flex: 1; min-width: 0; }
 
 .home-cta-title {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--primary);
   margin-bottom: 6px;
@@ -1599,9 +1600,9 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 }
 
 .home-cta-desc {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--gray-500);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   line-height: 1.5;
 }
 
@@ -2447,7 +2448,7 @@ select.form-input option[value=""] {
   .content-area { padding: 32px 40px; }
   .charts-row { grid-template-columns: 1fr clamp(260px, 26%, 360px); gap: 24px; margin-bottom: 24px; }
   .charts-row-even { grid-template-columns: 1fr 1fr; gap: 24px; }
-  .home-bottom-row { grid-template-columns: 1fr 1.6fr; gap: 24px; }
+  .home-bottom-row { gap: 24px; }
   .tbl-wrap { overflow-x: visible; }
   table { min-width: 100%; }
   thead th, tbody td { padding-left: 18px; padding-right: 18px; }
@@ -2457,7 +2458,7 @@ select.form-input option[value=""] {
   .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 24px; }
   .content-area { padding: 36px 52px; }
   .charts-row { grid-template-columns: 1fr clamp(280px, 24%, 400px); gap: 28px; margin-bottom: 28px; }
-  .home-bottom-row { grid-template-columns: 1fr 2fr; gap: 28px; }
+  .home-bottom-row { gap: 28px; }
   .form-grid { gap: 20px; }
   .form-grid-3 { gap: 20px; }
   thead th, tbody td { padding-left: 22px; padding-right: 22px; }

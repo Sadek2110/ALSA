@@ -321,6 +321,27 @@ function renderHome() {
       </div>
     </div>
 
+    <!-- CTA destacado: Nueva reserva -->
+    <div class="card home-cta-card" onclick="navigateTo('reserva')">
+      <div class="home-cta-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.58 3.41 2 2 0 0 1 3.55 1h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6.08 6.08l.87-.87a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 21.5 16z"/></svg>
+      </div>
+      <div class="home-cta-content">
+        <div class="home-cta-title">Reservar nuevo viaje</div>
+        <div class="home-cta-desc">Busca disponibilidad, elige naviera y completa los datos del pasajero en pocos pasos.</div>
+        <div class="home-cta-steps">
+          <span class="home-cta-step">1. Buscar viaje</span>
+          <span class="home-cta-sep">›</span>
+          <span class="home-cta-step">2. Pasajero</span>
+          <span class="home-cta-sep">›</span>
+          <span class="home-cta-step">3. Confirmar</span>
+        </div>
+      </div>
+      <div class="home-cta-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+
     <!-- Gráficos interactivos -->
     <div class="charts-row">
       <div class="chart-card">
@@ -357,10 +378,8 @@ function renderHome() {
       </div>
     </div>
 
-    <!-- CTA + actividad -->
+    <!-- Actividad reciente -->
     <div class="home-bottom-row">
-
-      <!-- Actividad reciente -->
       <div class="card home-activity-card">
         <div class="card-title">Actividad reciente</div>
         <div class="card-desc">Últimas reservas registradas</div>
@@ -379,28 +398,6 @@ function renderHome() {
           <button class="btn btn-secondary btn-sm" onclick="navigateTo('viajes')">Ver todas →</button>
         </div>
       </div>
-
-      <!-- CTA: Nueva reserva -->
-      <div class="card home-cta-card" onclick="navigateTo('reserva')">
-        <div class="home-cta-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.58 3.41 2 2 0 0 1 3.55 1h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6.08 6.08l.87-.87a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 21.5 16z"/></svg>
-        </div>
-        <div class="home-cta-content">
-          <div class="home-cta-title">Reservar nuevo viaje</div>
-          <div class="home-cta-desc">Busca disponibilidad, elige naviera y completa los datos del pasajero en pocos pasos.</div>
-          <div class="home-cta-steps">
-            <span class="home-cta-step">1. Buscar viaje</span>
-            <span class="home-cta-sep">›</span>
-            <span class="home-cta-step">2. Pasajero</span>
-            <span class="home-cta-sep">›</span>
-            <span class="home-cta-step">3. Confirmar</span>
-          </div>
-        </div>
-        <div class="home-cta-arrow">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
-
     </div>
   </div>`;
 }
