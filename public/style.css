@@ -2160,46 +2160,72 @@ select.form-input option[value=""] {
   border: 1.5px solid var(--gray-200);
   background-color: var(--white);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-position: right 12px center;
-  background-size: 18px;
+  background-image: none; /* Removed arrow */
+  padding: 12px 14px;
+  color: var(--gray-700);
+  cursor: pointer;
+  width: 100%;
 }
 .fp-select-wrap select:hover {
   border-color: var(--primary-light);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 .fp-select-wrap select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(61,142,232,0.15), 0 2px 8px rgba(61,142,232,0.08);
-  background-color: #fafcff;
+  box-shadow: 0 0 0 4px rgba(61,142,232,0.12), 0 4px 16px rgba(61, 142, 232, 0.08);
+  background-color: #fcfdff;
   outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+.fp-select-wrap select option {
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  background: var(--white);
+}
+.fp-select-wrap select option:hover,
+.fp-select-wrap select option:focus {
+  background: var(--primary-50);
+  color: var(--primary);
 }
 
 /* ── Vehicle Select — Fase 5.1 ── */
 #veh-select {
   border-radius: var(--radius-md);
   font-weight: 500;
-  padding: 12px 40px 12px 14px;
+  padding: 12px 14px; /* Quitamos padding derecho extra de la flecha */
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-position: right 12px center;
-  background-size: 18px;
+  background-image: none; /* Removed arrow */
+  border: 1.5px solid var(--gray-200);
+  background-color: var(--white);
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
 }
 #veh-select:hover {
   border-color: var(--primary-light);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 #veh-select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(61,142,232,0.15), 0 2px 8px rgba(61,142,232,0.08);
-  background-color: #fafcff;
+  box-shadow: 0 0 0 4px rgba(61,142,232,0.12), 0 4px 16px rgba(61, 142, 232, 0.08);
+  background-color: #fcfdff;
   outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+#veh-select option {
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  background: var(--white);
+}
+#veh-select option:hover,
+#veh-select option:focus {
+  background: var(--primary-50);
+  color: var(--primary);
 }
 
 /* ======================================================
