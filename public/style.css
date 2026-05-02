@@ -141,28 +141,81 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   outline: none;
 }
 .form-input:hover { border-color: var(--primary-light); }
-.form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(61,142,232,0.12); background: #fafcff; }
+.form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.15), 0 2px 8px rgba(61, 142, 232, 0.08); background: #fafcff; }
+select.form-input:focus { box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.15), 0 2px 8px rgba(61, 142, 232, 0.08); }
 .form-input::placeholder { color: var(--gray-300); font-style: italic; }
 .form-input.is-error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
 .form-input.is-valid  { border-color: var(--success); box-shadow: 0 0 0 3px rgba(16,185,129,0.08); }
+/* === Select moderno y limpio === */
 select.form-input {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
-  padding-right: 34px;
-  border-color: var(--primary-100);
+  background-position: right 12px center;
+  background-size: 18px;
+  padding-right: 40px;
+  border: 1.5px solid var(--gray-200);
   color: var(--gray-700);
   cursor: pointer;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 select.form-input:hover {
   border-color: var(--primary-light);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 select.form-input:focus {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.15), 0 2px 8px rgba(61, 142, 232, 0.08);
+  background-color: #fafcff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* Dropdown options - estilo moderno */
+select.form-input option {
+  padding: 12px 16px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  background: var(--white);
+  border: none;
+  outline: none;
+}
+
+select.form-input option:hover,
+select.form-input option:focus {
+  background: var(--primary-50);
+  color: var(--primary);
+}
+
+select.form-input option:checked,
+select.form-input option:selected {
+  background: var(--primary-50);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Select deshabilitado */
+select.form-input:disabled,
+select.form-input[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--gray-50);
+  border-color: var(--gray-200);
+}
+
+/* Select con error */
+select.form-input.is-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+select.form-input.is-error:focus {
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(239, 68, 68, 0.1);
 }
 
 .error-msg {
@@ -1975,29 +2028,70 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 }
 
 /* ======================================================
-   ENHANCED SELECT COMPONENT — Fase 5.1 Premium Redesign
-====================================================== */
+   ENHANCED SELECT COMPONENT — Modern Select Styles
+======================================================== */
 
 select.form-input,
 .wiz-select {
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--white);
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
-  background-size: 16px;
+  background-size: 18px;
   padding: 11px 40px 11px 14px;
-  border: 1.5px solid var(--primary-100);
+  border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--gray-700);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, transform 0.1s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   position: relative;
+}
+
+select.form-input:hover,
+.wiz-select:hover {
+  border-color: var(--primary-light);
+  background-color: var(--white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+select.form-input:focus,
+.wiz-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.15), 0 2px 8px rgba(61, 142, 232, 0.08);
+  background-color: #fafcff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  outline: none;
+}
+
+select.form-input:active {
+  transform: scale(0.995);
+}
+
+select.form-input option {
+  padding: 12px 16px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  background: var(--white);
+  color: var(--gray-700);
+  border: none;
+  outline: none;
+}
+
+select.form-input option:hover,
+select.form-input option:focus {
+  background: var(--primary-50);
+  color: var(--primary);
+}
+
+select.form-input option:checked {
+  background: var(--primary-50);
+  color: var(--primary);
+  font-weight: 600;
 }
 
 select.form-input:hover,
@@ -2040,56 +2134,78 @@ select.form-input option[value=""] {
 
 /* Status selector in tables */
 .status-select {
-  padding: 5px 30px 5px 10px;
-  font-size: 0.78rem;
+  padding: 6px 32px 6px 12px;
+  font-size: 0.8125rem;
   font-weight: 600;
   border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-full);
-  background-size: 12px;
-  background-position: right 8px center;
+  background-size: 14px;
+  background-position: right 10px center;
   min-width: 110px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-color: var(--white);
 }
 .status-select:hover {
   border-color: var(--primary-light);
-  box-shadow: 0 2px 6px rgba(61,142,232,0.08);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 .status-select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(61,142,232,0.12);
+  box-shadow: 0 0 0 3px rgba(61,142,232,0.12);
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
 /* ── Frecuent Passenger Select — Fase 5.1 ── */
 .fp-select-wrap select {
   border-radius: var(--radius-md);
-  border: 1.5px solid var(--primary-100);
+  border: 1.5px solid var(--gray-200);
   background-color: var(--white);
-  font-weight: 600;
+  font-weight: 500;
   transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-size: 18px;
 }
 .fp-select-wrap select:hover {
-  border-color: var(--primary);
-  background-color: var(--primary-50);
+  border-color: var(--primary-light);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 .fp-select-wrap select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(61,142,232,0.15), 0 4px 12px rgba(61,142,232,0.1);
-  background-color: var(--primary-50);
+  box-shadow: 0 0 0 4px rgba(61,142,232,0.15), 0 2px 8px rgba(61,142,232,0.08);
+  background-color: #fafcff;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
 /* ── Vehicle Select — Fase 5.1 ── */
 #veh-select {
   border-radius: var(--radius-md);
-  font-weight: 600;
+  font-weight: 500;
   padding: 12px 40px 12px 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-size: 18px;
 }
 #veh-select:hover {
-  border-color: var(--primary);
-  background-color: #f8fbff;
+  border-color: var(--primary-light);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 #veh-select:focus {
-  box-shadow: 0 0 0 3px rgba(61,142,232,0.15), 0 4px 14px rgba(61,142,232,0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(61,142,232,0.15), 0 2px 8px rgba(61,142,232,0.08);
+  background-color: #fafcff;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
 /* ======================================================
