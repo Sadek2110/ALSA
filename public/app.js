@@ -136,7 +136,7 @@ function _loadDemoData() {
   ];
   state.admins = [
     { id:1, nombre:'Admin Principal', email:'admin@kikoto.com', usuario:'admin',     activo:true,  fecha:'2024-01-10', acciones:'Acceso completo' },
-    { id:2, nombre:'Laura Sánchez',   email:'laura@kikoto.com', usuario:'laura.s',   activo:true,  fecha:'2024-02-14', acciones:'Gestión de viajes' },
+    { id:2, nombre:'Laura Sánchez',   email:'laura@kikoto.com', usuario:'laura.s',   activo:true,  fecha:'2024-02-14', acciones:'Gestión de reservas' },
     { id:3, nombre:'Roberto Pérez',   email:'rob@kikoto.com',   usuario:'roberto.p', activo:false, fecha:'2024-03-01', acciones:'Sin actividad reciente' },
   ];
 }
@@ -243,7 +243,7 @@ function handleForgotPwd() {
 // NAVIGATION
 // ============================================================
 const SEC_TITLES = {
-  home:'Escritorio', viajes:'Viajes', reserva:'Nueva Reserva',
+  home:'Escritorio', viajes:'Reservas', reserva:'Nueva Reserva',
   facturas:'Facturas', miembros:'Miembros',
   vehiculos:'Vehículos', administradores:'Administradores'
 };
@@ -287,7 +287,7 @@ function renderHome() {
 
   return `<div class="section-page">
     <div class="stats-grid">
-      <div class="stat-card stat-card-link" onclick="navigateTo('viajes')" title="Ir a Viajes">
+      <div class="stat-card stat-card-link" onclick="navigateTo('viajes')" title="Ir a Reservas">
         <div class="stat-icon blue">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
@@ -990,7 +990,7 @@ async function doSearchSailings() {
       if (content) content.innerHTML = `<div class="card" style="text-align:center;padding:48px 24px">
         <div style="font-size:2rem;margin-bottom:12px">🚢</div>
         <div style="font-weight:700;font-size:1rem;margin-bottom:8px">Sin disponibilidad</div>
-        <div style="color:var(--gray-400);font-size:0.875rem;margin-bottom:20px">No hay viajes para <strong>${esc(origenNm)} → ${esc(destinoNm)}</strong> el ${fmtDateShort(fechaIda)}.</div>
+        <div style="color:var(--gray-400);font-size:0.875rem;margin-bottom:20px">No hay reservas para <strong>${esc(origenNm)} → ${esc(destinoNm)}</strong> el ${fmtDateShort(fechaIda)}.</div>
         <button class="btn btn-secondary" style="width:auto" onclick="showWizStep1()">Cambiar búsqueda</button>
       </div>`;
       return;
@@ -1763,7 +1763,7 @@ function renderViajes() {
   return `<div class="section-page">
     <div class="sec-header">
       <div>
-        <h2 class="sec-title">Viajes</h2>
+        <h2 class="sec-title">Reservas</h2>
         <p class="sec-desc">Reservas generadas — ${state.bookings.filter(b=>!b.localizador).length} sin localizador · ${state.bookings.length} total</p>
       </div>
       <button class="btn btn-primary btn-sm" style="width:auto" onclick="navigateTo('reserva')">
