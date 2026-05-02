@@ -146,48 +146,42 @@ select.form-input:focus { box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.15), 0 2px 
 .form-input::placeholder { color: var(--gray-300); font-style: italic; }
 .form-input.is-error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
 .form-input.is-valid  { border-color: var(--success); box-shadow: 0 0 0 3px rgba(16,185,129,0.08); }
-/* === Select moderno y limpio === */
+/* === Select Futurista - Estilo input sin flecha === */
 select.form-input {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 18px;
-  padding-right: 40px;
+  background-image: none;
+  background: var(--white);
+  padding-right: 14px;
   border: 1.5px solid var(--gray-200);
   color: var(--gray-700);
   cursor: pointer;
   font-weight: 500;
   letter-spacing: 0.01em;
   position: relative;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 select.form-input:hover {
   border-color: var(--primary-light);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 select.form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.15), 0 2px 8px rgba(61, 142, 232, 0.08);
-  background-color: #fafcff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  border-width: 2px;
+  box-shadow: 0 0 0 4px rgba(61, 142, 232, 0.12), 0 4px 16px rgba(61, 142, 232, 0.08);
+  background-color: #fcfdff;
 }
 
-/* Dropdown options - estilo moderno */
+/* Dropdown options - estilo minimalista */
 select.form-input option {
-  padding: 12px 16px;
+  padding: 10px 12px;
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--gray-700);
   background: var(--white);
-  border: none;
-  outline: none;
 }
 
-select.form-input option:hover,
-select.form-input option:focus {
+select.form-input option:hover {
   background: var(--primary-50);
   color: var(--primary);
 }
