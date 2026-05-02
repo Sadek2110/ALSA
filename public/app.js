@@ -339,11 +339,21 @@ function renderHome() {
       </div>
     </div>
 
-    <div class="chart-card chart-card-full">
-      <div class="chart-title">Rutas más populares</div>
-      <div class="chart-desc">Top 5 rutas con más reservas</div>
-      <div class="chart-canvas-wrap chart-canvas-wrap-sm">
-        <canvas id="chart-routes"></canvas>
+    <!-- Gráficos fila 2 -->
+    <div class="charts-row charts-row-even">
+      <div class="chart-card">
+        <div class="chart-title">Rutas más populares</div>
+        <div class="chart-desc">Top 5 rutas con más reservas</div>
+        <div class="chart-canvas-wrap chart-canvas-wrap-sm">
+          <canvas id="chart-routes"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Facturación mensual</div>
+        <div class="chart-desc">Total facturado por mes en los últimos 6 meses</div>
+        <div class="chart-canvas-wrap chart-canvas-wrap-sm">
+          <canvas id="chart-invoices"></canvas>
+        </div>
       </div>
     </div>
 
@@ -407,7 +417,7 @@ function initHomeCharts() {
 
   const font = (size) => ({ size, family: 'Inter, sans-serif' });
 
-  ['chart-line', 'chart-donut', 'chart-routes'].forEach(id => {
+  ['chart-line', 'chart-donut', 'chart-routes', 'chart-invoices'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { const ch = Chart.getChart(el); if (ch) ch.destroy(); }
   });
@@ -582,6 +592,76 @@ function initHomeCharts() {
           grid: { display: false },
           border: { display: false },
           ticks: { color: '#374151', font: font(12) }
+        }
+      }
+    }
+  });
+
+  // ── Bar: Facturación mensual ────────────────────────────────
+  const invLabels = [], invAmounts = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    invLabels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
+    const y = d.getFullYear(), m = d.getMonth();
+    const monthTotal = state.invoices.filter(inv => {
+      if (!inv.fecha) return false;
+      let id;
+      if (inv.fecha.includes('-')) {
+        const [yr, mo, dy] = inv.fecha.split('-');
+        id = new Date(parseInt(yr), parseInt(mo) - 1, parseInt(dy));
+      } else {
+        const [dd, mm, yyyy] = inv.fecha.split('/');
+        id = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+      }
+      return !isNaN(id) && id.getFullYear() === y && id.getMonth() === m;
+    }).reduce((s, inv) => s + (inv.importe || 0), 0);
+    invAmounts.push(Math.round(monthTotal));
+  }
+
+  new Chart(document.getElementById('chart-invoices'), {
+    type: 'bar',
+    data: {
+      labels: invLabels,
+      datasets: [{
+        label: 'Facturado',
+        data: invAmounts,
+        backgroundColor: invAmounts.map(v =>
+          v > 0 ? 'rgba(16,185,129,0.75)' : 'rgba(209,213,219,0.5)'
+        ),
+        hoverBackgroundColor: invAmounts.map(v =>
+          v > 0 ? '#10b981' : '#d1d5db'
+        ),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `  €${ctx.parsed.y.toLocaleString('es-ES', { minimumFractionDigits: 0 })}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: font(11) }
+        },
+        y: {
+          border: { display: false, dash: [4, 4] },
+          grid: { color: C.gridLine },
+          ticks: {
+            color: C.tick,
+            font: font(11),
+            callback: v => v >= 1000 ? `€${(v / 1000).toFixed(0)}k` : `€${v}`
+          },
+          beginAtZero: true,
         }
       }
     }
