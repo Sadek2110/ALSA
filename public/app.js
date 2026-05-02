@@ -272,6 +272,7 @@ function navigateTo(section) {
   if (fn) $('content-area').innerHTML = fn();
 
   if (section === 'reserva') initReservaSection();
+  if (section === 'home') initHomeCharts();
   closeSidebar();
   window.scrollTo({ top:0, behavior:'smooth' });
 }
@@ -317,6 +318,32 @@ function renderHome() {
         <div class="stat-label">Facturas Pendientes</div>
         <div class="stat-value">${pend}</div>
         <div class="stat-change down"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Requieren atención</div>
+      </div>
+    </div>
+
+    <!-- Gráficos interactivos -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Evolución de reservas</div>
+        <div class="chart-desc">Reservas por mes en los últimos 6 meses</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="chart-line"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Estado de reservas</div>
+        <div class="chart-desc">Distribución actual del total</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="chart-donut"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card chart-card-full">
+      <div class="chart-title">Rutas más populares</div>
+      <div class="chart-desc">Top 5 rutas con más reservas</div>
+      <div class="chart-canvas-wrap chart-canvas-wrap-sm">
+        <canvas id="chart-routes"></canvas>
       </div>
     </div>
 
@@ -366,6 +393,199 @@ function renderHome() {
 
     </div>
   </div>`;
+}
+
+function initHomeCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  const C = {
+    primary: '#3d8ee8', success: '#10b981',
+    warning: '#f59e0b', danger: '#ef4444',
+    purple: '#8b5cf6', gray100: '#f3f4f6',
+    gridLine: '#f0f1f3', tick: '#9ca3af',
+  };
+
+  const font = (size) => ({ size, family: 'Inter, sans-serif' });
+
+  ['chart-line', 'chart-donut', 'chart-routes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { const ch = Chart.getChart(el); if (ch) ch.destroy(); }
+  });
+
+  // ── Donut: Estado de reservas ───────────────────────────────
+  const confirmed = state.bookings.filter(b => b.localizador && b.estado !== 'Cancelado').length;
+  const pending   = state.bookings.filter(b => !b.localizador && b.estado !== 'Cancelado').length;
+  const cancelled = state.bookings.filter(b => b.estado === 'Cancelado').length;
+  const total     = state.bookings.length;
+
+  new Chart(document.getElementById('chart-donut'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Confirmadas', 'Pendientes', 'Canceladas'],
+      datasets: [{
+        data: [confirmed, pending, cancelled],
+        backgroundColor: [C.success, C.warning, C.danger],
+        borderWidth: 3,
+        borderColor: '#fff',
+        hoverOffset: 10,
+      }]
+    },
+    options: {
+      cutout: '70%',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { padding: 14, font: font(12), color: '#6b7280', boxWidth: 10, boxHeight: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = total ? Math.round(ctx.parsed / total * 100) : 0;
+              return `  ${ctx.parsed} reservas (${pct}%)`;
+            }
+          }
+        }
+      }
+    },
+    plugins: [{
+      id: 'centerText',
+      beforeDraw(chart) {
+        const { ctx, chartArea: { top, bottom, left, right } } = chart;
+        const cx = (left + right) / 2, cy = (top + bottom) / 2;
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = `700 22px Inter, sans-serif`;
+        ctx.fillStyle = '#111827';
+        ctx.fillText(total, cx, cy - 8);
+        ctx.font = `400 11px Inter, sans-serif`;
+        ctx.fillStyle = '#9ca3af';
+        ctx.fillText('reservas', cx, cy + 10);
+        ctx.restore();
+      }
+    }]
+  });
+
+  // ── Line: Evolución mensual ─────────────────────────────────
+  const now = new Date();
+  const labels = [], counts = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    labels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
+    const y = d.getFullYear(), m = d.getMonth();
+    const n = state.bookings.filter(b => {
+      if (!b.departureDate) return false;
+      let bd;
+      if (b.departureDate.includes('-')) {
+        const [yr, mo, dy] = b.departureDate.split('-');
+        bd = new Date(parseInt(yr), parseInt(mo) - 1, parseInt(dy));
+      } else {
+        const [dd, mm, yyyy] = b.departureDate.split('/');
+        bd = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+      }
+      return !isNaN(bd) && bd.getFullYear() === y && bd.getMonth() === m;
+    }).length;
+    counts.push(n);
+  }
+
+  new Chart(document.getElementById('chart-line'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Reservas',
+        data: counts,
+        borderColor: C.primary,
+        backgroundColor: 'rgba(61,142,232,0.08)',
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: C.primary,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2.5,
+        tension: 0.4,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => `  ${ctx.parsed.y} reserva${ctx.parsed.y !== 1 ? 's' : ''}` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: font(11) }
+        },
+        y: {
+          border: { display: false, dash: [4, 4] },
+          grid: { color: C.gridLine },
+          ticks: { color: C.tick, font: font(11), precision: 0, stepSize: 1 },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+
+  // ── Horizontal bar: Top rutas ───────────────────────────────
+  const routeMap = {};
+  state.bookings.forEach(b => {
+    const key = b.origin && b.destination ? `${b.origin} → ${b.destination}` : null;
+    if (key) routeMap[key] = (routeMap[key] || 0) + 1;
+  });
+
+  const sortedRoutes = Object.entries(routeMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const routeLabels = sortedRoutes.map(r => r[0]);
+  const routeData   = sortedRoutes.map(r => r[1]);
+  const barColors   = [C.primary, C.purple, C.success, C.warning, '#06b6d4'];
+
+  new Chart(document.getElementById('chart-routes'), {
+    type: 'bar',
+    data: {
+      labels: routeLabels.length ? routeLabels : ['Sin datos'],
+      datasets: [{
+        label: 'Reservas',
+        data: routeData.length ? routeData : [0],
+        backgroundColor: barColors.slice(0, Math.max(routeLabels.length, 1)),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => `  ${ctx.parsed.x} reserva${ctx.parsed.x !== 1 ? 's' : ''}` }
+        }
+      },
+      scales: {
+        x: {
+          border: { display: false, dash: [4, 4] },
+          grid: { color: C.gridLine },
+          ticks: { color: C.tick, font: font(11), precision: 0, stepSize: 1 },
+          beginAtZero: true,
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: '#374151', font: font(12) }
+        }
+      }
+    }
+  });
 }
 
 // ============================================================
@@ -832,11 +1052,11 @@ function showWizStep3() {
           Cargar desde Pasajeros Frecuentes
         </div>
         ${fp.length > 0 ? `
-        <div class="fp-select-wrap">
-          <select id="fp-selector" class="form-input" onchange="onFpSelectorChange(this)">
-            <option value="">— Seleccionar pasajero —</option>
-            ${fp.map((q,i)=>`<option value="${i}">${esc(q.nombre)} ${esc(q.apellido1)} · ${esc(q.numDoc)}</option>`).join('')}
-          </select>
+        <div class="fp-select-wrap" style="position:relative">
+          <input type="text" class="form-input" id="fp-search" value="" placeholder="Escribe para buscar pasajero..." autocomplete="off"
+            oninput="filterFrequentPax(this)" onfocus="filterFrequentPax(this)" onblur="setTimeout(()=>hideDropdown('drop-fp'),180)">
+          <div class="route-dropdown" id="drop-fp"></div>
+          <input type="hidden" id="fp-selected-idx" value="">
         </div>` : `<p style="font-size:0.75rem;color:var(--gray-500);margin:0">No hay pasajeros frecuentes guardados.</p>`}
       </div>
 
@@ -1000,19 +1220,21 @@ function finalizePassengerStep() {
   else showWizStep5();
 }
 
-function onFpSelectorChange(sel) {
-  if (!sel.value) return;
-  const p = state.frequentPassengers[Number(sel.value)];
+function selectFrequentPax(idx) {
+  const p = state.frequentPassengers[idx];
   if (!p) return;
-  
+  const inp = $('fp-search');
+  if (inp) inp.value = `${p.nombre} ${p.apellido1} · ${p.numDoc}`;
+  const hid = $('fp-selected-idx');
+  if (hid) hid.value = idx;
+
   const set = (id, v) => { const el=$(id); if(el) el.value=v||''; };
   set('pax-nombre', p.nombre);
   set('pax-ape1',   p.apellido1);
   set('pax-ape2',   p.apellido2);
   set('pax-email',  p.email);
   set('pax-email2', p.email);
-  
-  // Split prefix and number
+
   const knownPrefixes = ['+34','+1','+44','+33','+49','+39','+351'];
   let telPrefix = '+34', telNumber = p.telefono || '';
   for (const pre of knownPrefixes) {
@@ -1032,6 +1254,68 @@ function onFpSelectorChange(sel) {
 
   checkFrequentPassengerDuplicate(p.numDoc);
   showToast('info','Datos cargados',`Se han cargado los datos de ${p.nombre}.`);
+  hideDropdown('drop-fp');
+}
+
+function filterFrequentPax() {
+  const inp = $('fp-search');
+  const drop = $('drop-fp');
+  if (!inp || !drop) return;
+  const q = inp.value.trim().toLowerCase();
+  const fp = state.frequentPassengers || [];
+  const filtered = fp.filter(p =>
+    `${p.nombre} ${p.apellido1} ${p.apellido2||''} ${p.numDoc} ${p.email||''}`.toLowerCase().includes(q)
+  );
+  if (!filtered.length) {
+    drop.innerHTML = `<div class="route-option" style="color:var(--gray-400);cursor:default">Sin resultados</div>`;
+    drop.classList.add('open');
+    return;
+  }
+  drop.innerHTML = filtered.map(p => {
+    const idx = state.frequentPassengers.indexOf(p);
+    return `<div class="route-option" data-idx="${idx}"
+      onmousedown="selectFrequentPax(${idx})">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      ${esc(p.nombre)} ${esc(p.apellido1)}${p.apellido2 ? ' ' + esc(p.apellido2) : ''} · ${esc(p.numDoc)}
+    </div>`;
+  }).join('');
+  drop.classList.add('open');
+}
+
+function selectVehicle(vehId) {
+  const v = state.vehicles.find(v => String(v.id) === String(vehId));
+  if (!v) return;
+  const inp = $('veh-search');
+  if (inp) inp.value = `${v.marca} ${v.modelo}${v.matricula ? ' [' + v.matricula + ']' : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m`;
+  const hid = $('veh-selected-id');
+  if (hid) hid.value = v.id;
+  fieldOk('e-veh-select','veh-search');
+  state.bookingWizard.vehicle = { marca:v.marca, modelo:v.modelo, matricula:v.matricula||'', ancho:v.ancho, largo:v.largo, alto:v.alto };
+  hideDropdown('drop-veh');
+}
+
+function filterVehicles() {
+  const inp = $('veh-search');
+  const drop = $('drop-veh');
+  if (!inp || !drop) return;
+  const q = inp.value.trim().toLowerCase();
+  const vehicles = state.vehicles || [];
+  const filtered = vehicles.filter(v =>
+    `${v.marca} ${v.modelo} ${v.matricula||''}`.toLowerCase().includes(q)
+  );
+  if (!filtered.length) {
+    drop.innerHTML = `<div class="route-option" style="color:var(--gray-400);cursor:default">Sin resultados</div>`;
+    drop.classList.add('open');
+    return;
+  }
+  drop.innerHTML = filtered.map(v =>
+    `<div class="route-option" data-id="${v.id}"
+      onmousedown="selectVehicle('${v.id}')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      ${esc(v.marca)} ${esc(v.modelo)}${v.matricula ? ' [' + esc(v.matricula) + ']' : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m
+    </div>`
+  ).join('');
+  drop.classList.add('open');
 }
 
 // ── Paso 4: Datos del vehículo ───────────────────────────────
@@ -1083,12 +1367,12 @@ function showWizStep4() {
         </div>
 
         <div id="veh-reg-panel" style="${savedVehicles.length > 0 ? '' : 'display:none'}">
-          <div style="margin-bottom:18px">
+          <div style="margin-bottom:18px;position:relative">
             <label class="form-label">Selecciona el vehículo</label>
-            <select id="veh-select" class="form-input">
-              <option value="">— Elige un vehículo —</option>
-              ${savedVehicles.map(v=>`<option value="${v.id}">${esc(v.marca)} ${esc(v.modelo)}${v.matricula ? ` [${esc(v.matricula)}]` : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m</option>`).join('')}
-            </select>
+            <input type="text" class="form-input" id="veh-search" value="" placeholder="Escribe para buscar vehículo..." autocomplete="off"
+              oninput="filterVehicles(this)" onfocus="filterVehicles(this)" onblur="setTimeout(()=>hideDropdown('drop-veh'),180)">
+            <div class="route-dropdown" id="drop-veh"></div>
+            <input type="hidden" id="veh-selected-id" value="">
             <span class="error-msg" id="e-veh-select"></span>
           </div>
         </div>
@@ -1171,11 +1455,15 @@ function onVehicleModeChange(mode) {
     if (newFields) newFields.style.display = 'none';
     if (regLbl)    regLbl.classList.add('active');
     if (newLbl)    newLbl.classList.remove('active');
+    // Show vehicle dropdown options on focus
   } else {
     if (regPanel)  regPanel.style.display  = 'none';
     if (newFields) newFields.style.display = '';
     if (newLbl)    newLbl.classList.add('active');
     if (regLbl)    regLbl.classList.remove('active');
+    // Clear vehicle search selection
+    const s = $('veh-search'); if (s) s.value = '';
+    const h = $('veh-selected-id'); if (h) h.value = '';
   }
 }
 
@@ -1185,10 +1473,9 @@ function wizStep2Submit(e) {
   const mode   = modeEl ? modeEl.value : 'nuevo';
 
   if (mode === 'registrado') {
-    const selEl  = $('veh-select');
-    const selVal = selEl ? selEl.value : '';
-    if (!selVal) { fieldErr('e-veh-select','veh-select','Selecciona un vehículo'); return; }
-    fieldOk('e-veh-select','veh-select');
+    const selVal = val('veh-selected-id');
+    if (!selVal) { fieldErr('e-veh-select','veh-search','Selecciona un vehículo'); return; }
+    fieldOk('e-veh-select','veh-search');
     const v = state.vehicles.find(v=>String(v.id)===selVal);
     if (v) state.bookingWizard.vehicle = { marca:v.marca, modelo:v.modelo, matricula:v.matricula||'', ancho:v.ancho, largo:v.largo, alto:v.alto };
   } else {
@@ -1357,9 +1644,10 @@ async function doFinalizeBooking(e) {
   if (confirmBtn) confirmBtn.disabled = true;
 
   try {
-    const newBooking = await api('POST', '/bookings', payload);
-    state.bookings.unshift(newBooking);
-    state.lastCreatedBookingId = newBooking.id;
+    const result = await api('POST', '/bookings', payload);
+    const bookings = Array.isArray(result) ? result : [result];
+    state.bookings.unshift(...bookings);
+    state.lastCreatedBookingId = bookings[0].id;
 
     if ($('pax-frecuente')?.checked) {
       const pax = wz.passengers[0];
@@ -1471,7 +1759,7 @@ function renderViajes() {
                   </td>
                   <td onclick="event.stopPropagation()">
                     <div class="tbl-actions">
-                      <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})" title="Editar" ${b.vehMarca ? 'style="opacity:0.45;cursor:not-allowed" disabled' : ''}>
+                      <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})" title="Editar">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
                       <button class="btn btn-danger btn-sm" onclick="deleteBooking(${b.id})" title="Eliminar">
@@ -1527,7 +1815,7 @@ function renderViajes() {
               </div>
             </div>
             <div class="bk-card-foot">
-              <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})" ${b.vehMarca ? 'disabled style="opacity:0.45"' : ''}>
+              <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Editar
               </button>
@@ -2719,8 +3007,12 @@ async function editBooking(id) {
   const body    = $('booking-modal-body');
   if (!overlay || !body) return;
 
-  const locked = !!b.vehMarca;
-  const NAVIERAS = ['Balearia','FRS','Armas Trasatlántica','GNV','Trasmediterránea'];
+  const hasVehicle = !!b.vehMarca;
+  const NAVIERAS = ['Balearia','Baleària','FRS','Armas Trasatlántica','GNV','Trasmediterránea'];
+  // Asegurar que la naviera actual siempre aparece en el select aunque no esté en la lista
+  const navieraOptions = b.naviera && !NAVIERAS.includes(b.naviera)
+    ? [...NAVIERAS, b.naviera]
+    : NAVIERAS;
 
   body.innerHTML = `
     <div class="modal-header">
@@ -2730,71 +3022,71 @@ async function editBooking(id) {
       </button>
     </div>
     <div class="modal-body">
-      ${locked ? `<div style="background:var(--warning-light);border:1px solid var(--warning);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:0.875rem;color:#92400e">
-        <strong>⚠ Edición bloqueada</strong> — esta reserva tiene un vehículo asignado y no se puede modificar.
+      ${hasVehicle ? `<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:0.875rem;color:#92400e">
+        <strong>ℹ Reserva con vehículo</strong> — puedes editar datos del viaje y del pasajero, pero no los datos del vehículo.
       </div>` : ''}
       <form id="edit-booking-form" onsubmit="submitEditBooking(event,${id})" novalidate>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Origen</label>
-            <input type="text" class="form-input" id="eb-origin" value="${esc(b.origin||'')}" ${locked?'disabled':''}>
+            <input type="text" class="form-input" id="eb-origin" value="${esc(b.origin||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Destino</label>
-            <input type="text" class="form-input" id="eb-dest" value="${esc(b.destination||'')}" ${locked?'disabled':''}>
+            <input type="text" class="form-input" id="eb-dest" value="${esc(b.destination||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Naviera</label>
-            <select class="form-input" id="eb-naviera" ${locked?'disabled':''}>
-              ${NAVIERAS.map(n=>`<option value="${n}" ${b.naviera===n?'selected':''}>${n}</option>`).join('')}
+            <select class="form-input" id="eb-naviera">
+              ${navieraOptions.map(n=>`<option value="${n}" ${b.naviera===n?'selected':''}>${n}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Tipo de viaje</label>
-            <select class="form-input" id="eb-triptype" ${locked?'disabled':''}>
+            <select class="form-input" id="eb-triptype">
               <option value="ida" ${b.tripType==='ida'?'selected':''}>Ida</option>
               <option value="idayvuelta" ${b.tripType==='idayvuelta'?'selected':''}>Ida y vuelta</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Fecha salida</label>
-            <input type="date" class="form-input" id="eb-depdate" value="${esc(b.departureDate||'')}" ${locked?'disabled':''}>
+            <input type="date" class="form-input" id="eb-depdate" value="${esc(b.departureDate||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Hora salida</label>
-            <input type="time" class="form-input" id="eb-deptime" value="${esc(b.departureTime||'')}" ${locked?'disabled':''}>
+            <input type="time" class="form-input" id="eb-deptime" value="${esc(b.departureTime||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Fecha vuelta</label>
-            <input type="date" class="form-input" id="eb-retdate" value="${esc(b.returnDate||'')}" ${locked?'disabled':''}>
+            <input type="date" class="form-input" id="eb-retdate" value="${esc(b.returnDate||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Hora vuelta</label>
-            <input type="time" class="form-input" id="eb-rettime" value="${esc(b.returnTime||'')}" ${locked?'disabled':''}>
+            <input type="time" class="form-input" id="eb-rettime" value="${esc(b.returnTime||'')}">
           </div>
         </div>
         <div style="margin-top:4px;margin-bottom:2px;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400)">Pasajero principal</div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Nombre</label>
-            <input type="text" class="form-input" id="eb-pnombre" value="${esc(b.paxNombre||b.passengerName?.split(' ')[0]||'')}" ${locked?'disabled':''}>
+            <input type="text" class="form-input" id="eb-pnombre" value="${esc(b.paxNombre||b.passengerName?.split(' ')[0]||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Apellido</label>
-            <input type="text" class="form-input" id="eb-pape1" value="${esc(b.paxApellido1||b.passengerName?.split(' ').slice(1).join(' ')||'')}" ${locked?'disabled':''}>
+            <input type="text" class="form-input" id="eb-pape1" value="${esc(b.paxApellido1||b.passengerName?.split(' ').slice(1).join(' ')||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input type="email" class="form-input" id="eb-pemail" value="${esc(b.paxEmail||b.email||'')}" ${locked?'disabled':''}>
+            <input type="email" class="form-input" id="eb-pemail" value="${esc(b.paxEmail||b.email||'')}">
           </div>
           <div class="form-group">
             <label class="form-label">Teléfono</label>
-            <input type="text" class="form-input" id="eb-ptel" value="${esc(b.paxTelefono||'')}" ${locked?'disabled':''}>
+            <input type="text" class="form-input" id="eb-ptel" value="${esc(b.paxTelefono||'')}">
           </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:18px">
           <button type="button" class="btn btn-secondary" style="width:auto" onclick="closeBookingModal()">Cancelar</button>
-          ${!locked ? `<button type="submit" class="btn btn-primary" style="width:auto">Guardar cambios</button>` : ''}
+          <button type="submit" class="btn btn-primary" style="width:auto">Guardar cambios</button>
         </div>
       </form>
     </div>`;

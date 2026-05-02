@@ -151,9 +151,10 @@ describe('API Integration Tests', () => {
         ],
       });
       expect(res.status).toBe(201);
-      expect(res.body.origin).toBe('Algeciras');
-      expect(res.body.passengerName).toBe('Test User');
-      bookingId = res.body.id;
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body[0].origin).toBe('Algeciras');
+      expect(res.body[0].passengerName).toBe('Test User');
+      bookingId = res.body[0].id;
     });
 
     test('POST /api/bookings creates a group booking with multiple passengers', async () => {
@@ -177,7 +178,9 @@ describe('API Integration Tests', () => {
         ],
       });
       expect(res.status).toBe(201);
-      expect(res.body.vehicleData).not.toBeNull();
+      expect(res.body.length).toBe(3);
+      expect(res.body[0].vehicleData).not.toBeNull();
+      expect(res.body[0].groupId).toBe('GRP-TEST');
     });
 
     test('POST /api/bookings rejects self-route (origin = destination)', async () => {
@@ -288,7 +291,7 @@ describe('API Integration Tests', () => {
         departureDate: '2026-07-01',
         passengers: [{ nombre: 'Edit', apellido1: 'Me', email: 'edit@me.com' }],
       });
-      const id = createRes.body.id;
+      const id = createRes.body[0].id;
 
       const res = await agent.put(`/api/bookings/${id}`).send({
         origin: 'Algeciras',
@@ -301,13 +304,22 @@ describe('API Integration Tests', () => {
       expect(res.body.naviera).toBe('Balearia');
     });
 
-    test('PUT /api/bookings/:id blocks edit on booking with vehicle', async () => {
-      // The first booking has vehicle data (Mercedes Sprinter in seed data)
+    test('PUT /api/bookings/:id blocks vehicle field edits on booking with vehicle', async () => {
+      // Booking #1 has vehicle data (Mercedes Sprinter in seed data)
       const res = await agent.put('/api/bookings/1').send({
-        origin: 'Barcelona',
+        vehMarca: 'Toyota',
       });
       expect(res.status).toBe(403);
       expect(res.body.error).toContain('vehículo');
+    });
+
+    test('PUT /api/bookings/:id allows non-vehicle edits on booking with vehicle', async () => {
+      // Booking #1 has vehicle data but we edit passenger fields only
+      const res = await agent.put('/api/bookings/1').send({
+        paxNombre: 'NuevoNombre',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.paxNombre).toBe('NuevoNombre');
     });
 
     test('PUT /api/bookings/:id returns 404 for non-existent booking', async () => {
@@ -325,7 +337,7 @@ describe('API Integration Tests', () => {
         departureDate: '2026-08-01',
         passengers: [{ nombre: 'Del', apellido1: 'Me', email: 'del@me.com' }],
       });
-      const id = createRes.body.id;
+      const id = createRes.body[0].id;
 
       const res = await agent.delete(`/api/bookings/${id}`);
       expect(res.status).toBe(200);
