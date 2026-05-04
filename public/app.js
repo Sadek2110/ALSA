@@ -1676,8 +1676,6 @@ function showWizStep5() {
   const sail = wz.selectedSailing;
   const tripTypeLabel = wz.tripType === 'idayvuelta' ? 'Ida y vuelta' : 'Ida';
 
-  const nacMap = { ES:'Española',FR:'Francesa',IT:'Italiana',PT:'Portuguesa',UK:'Británica',DE:'Alemana',MA:'Marroquí',OTHER:'Otra' };
-
   content.innerHTML = `
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
