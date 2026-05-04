@@ -476,26 +476,26 @@ function initHomeCharts() {
 
   // ── Line: Evolución mensual ─────────────────────────────────
   const now = new Date();
-  const labels = [], counts = [];
-
+  const monthsMeta = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    labels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
-    const y = d.getFullYear(), m = d.getMonth();
-    const n = state.bookings.filter(b => {
-      if (!b.departureDate) return false;
-      let bd;
-      if (b.departureDate.includes('-')) {
-        const [yr, mo, dy] = b.departureDate.split('-');
-        bd = new Date(parseInt(yr), parseInt(mo) - 1, parseInt(dy));
-      } else {
-        const [dd, mm, yyyy] = b.departureDate.split('/');
-        bd = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
-      }
-      return !isNaN(bd) && bd.getFullYear() === y && bd.getMonth() === m;
-    }).length;
-    counts.push(n);
+    monthsMeta.push({
+      label: d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+      y: d.getFullYear(),
+      m: d.getMonth()
+    });
   }
+
+  const labels = monthsMeta.map(mm => mm.label);
+  const counts = [];
+
+  // Pre-parse dates once
+  const parsedBookings = state.bookings.map(b => ({ ...b, _parsed: _parseDate(b.departureDate) }));
+
+  monthsMeta.forEach(meta => {
+    const n = parsedBookings.filter(b => b._parsed && b._parsed.y === meta.y && b._parsed.m === meta.m).length;
+    counts.push(n);
+  });
 
   new Chart(document.getElementById('chart-line'), {
     type: 'line',
@@ -595,26 +595,17 @@ function initHomeCharts() {
   });
 
   // ── Bar: Facturación mensual ────────────────────────────────
-  const invLabels = [], invAmounts = [];
+  const invLabels = monthsMeta.map(mm => mm.label);
+  const invAmounts = [];
 
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    invLabels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
-    const y = d.getFullYear(), m = d.getMonth();
-    const monthTotal = state.invoices.filter(inv => {
-      if (!inv.fecha) return false;
-      let id;
-      if (inv.fecha.includes('-')) {
-        const [yr, mo, dy] = inv.fecha.split('-');
-        id = new Date(parseInt(yr), parseInt(mo) - 1, parseInt(dy));
-      } else {
-        const [dd, mm, yyyy] = inv.fecha.split('/');
-        id = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
-      }
-      return !isNaN(id) && id.getFullYear() === y && id.getMonth() === m;
-    }).reduce((s, inv) => s + (inv.importe || 0), 0);
+  const parsedInvoices = state.invoices.map(inv => ({ ...inv, _parsed: _parseDate(inv.fecha) }));
+
+  monthsMeta.forEach(meta => {
+    const monthTotal = parsedInvoices
+      .filter(inv => inv._parsed && inv._parsed.y === meta.y && inv._parsed.m === meta.m)
+      .reduce((s, inv) => s + (inv.importe || 0), 0);
     invAmounts.push(Math.round(monthTotal));
-  }
+  });
 
   new Chart(document.getElementById('chart-invoices'), {
     type: 'bar',
@@ -2867,6 +2858,21 @@ function fieldOk(errId, inputId) {
   const err=$(errId), inp=$(inputId);
   if (err) err.classList.remove('visible');
   if (inp) inp.classList.remove('is-error');
+}
+
+function _parseDate(s) {
+  if (!s) return null;
+  let d;
+  if (s.includes('-')) {
+    const [y, m, day] = s.split('-');
+    d = new Date(parseInt(y), parseInt(m) - 1, parseInt(day));
+  } else if (s.includes('/')) {
+    const [day, m, y] = s.split('/');
+    d = new Date(parseInt(y), parseInt(m) - 1, parseInt(day));
+  } else {
+    d = new Date(s);
+  }
+  return isNaN(d.getTime()) ? null : { y: d.getFullYear(), m: d.getMonth() };
 }
 
 function fmtDate(s) {
