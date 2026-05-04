@@ -26,6 +26,7 @@ const crypto  = require('crypto');
 const nodemailer = require('nodemailer');
 
 const store = require('./store');
+const { isValidEmail, isValidDni, isValidDate, isValidLoc } = require('./validation');
 
 // ============================================================
 // EMAIL — nodemailer + SMTP Kikoto
@@ -173,11 +174,6 @@ function logAction(type, entity, entityId, desc, adminId) {
     });
   } catch (_) {}
 }
-
-function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ''); }
-function isValidDni(v)   { return /^[0-9]{8}[A-Za-z]$/.test(v || ''); }
-function isValidDate(v)  { return /^\d{4}-\d{2}-\d{2}$/.test(v || ''); }
-function isValidLoc(v)   { return /^[A-Z0-9]{1,10}$/.test(v || ''); }
 
 // ============================================================
 // AUTH — /api/auth/*
