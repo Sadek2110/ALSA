@@ -937,18 +937,22 @@ app.delete('/api/frequent-passengers/:id', requireAuth, (req, res) => {
 const KIKOTO_API_BASE = process.env.KIKOTO_API_BASE || 'https://api.b2b.kikoto.com/v1';
 const KIKOTO_API_TOKEN = process.env.KIKOTO_API_TOKEN || '';
 
-async function fetchKikoto(path) {
+async function fetchKikoto(path, options = {}) {
   if (!KIKOTO_API_TOKEN) {
     console.warn(`[KIKOTO API] No token configured for ${path}. Using empty data.`);
     return { data: [] };
   }
   try {
-    const res = await fetch(`${KIKOTO_API_BASE}${path}`, {
+    const fetchOptions = {
+      ...options,
       headers: {
         'Authorization': `Bearer ${KIKOTO_API_TOKEN}`,
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
       },
-    });
+    };
+    const res = await fetch(`${KIKOTO_API_BASE}${path}`, fetchOptions);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -1006,30 +1010,38 @@ app.get('/api/routes', requireAuth, async (_req, res) => {
   }
 });
 
-function demoSailings(date) {
-  return [
-    { naviera: 'Balearia',             departureDate: date, departureTime: '07:30' },
-    { naviera: 'Trasmediterránea',     departureDate: date, departureTime: '10:00' },
-    { naviera: 'FRS',                  departureDate: date, departureTime: '12:15' },
-    { naviera: 'Armas Trasatlántica',  departureDate: date, departureTime: '14:45' },
-    { naviera: 'GNV',                  departureDate: date, departureTime: '17:30' },
-  ];
-}
-
-app.post('/api/sailings', requireAuth, (req, res) => {
+app.post('/api/sailings', requireAuth, async (req, res) => {
   const { departure_port_id, destination_port_id, date } = req.body;
   if (!departure_port_id || !destination_port_id || !date) return fail(res, 'departure_port_id, destination_port_id y date son obligatorios.');
   if (!isValidDate(date)) return fail(res, 'Formato de fecha inválido (YYYY-MM-DD).');
   if (departure_port_id === destination_port_id) return fail(res, 'El origen y el destino no pueden ser el mismo puerto.');
-  ok(res, demoSailings(date));
+
+  try {
+    const externalRes = await fetchKikoto('/sailings', {
+      method: 'POST',
+      body: JSON.stringify({ departure_port_id, destination_port_id, date })
+    });
+    ok(res, externalRes.data || []);
+  } catch (err) {
+    fail(res, 'Error al obtener sailings: ' + err.message, 500);
+  }
 });
 
-app.post('/api/timetables', requireAuth, (req, res) => {
+app.post('/api/timetables', requireAuth, async (req, res) => {
   const { departure_port_id, destination_port_id, date } = req.body;
   if (!departure_port_id || !destination_port_id || !date) return fail(res, 'departure_port_id, destination_port_id y date son obligatorios.');
   if (!isValidDate(date)) return fail(res, 'Formato de fecha inválido (YYYY-MM-DD).');
   if (departure_port_id === destination_port_id) return fail(res, 'El origen y el destino no pueden ser el mismo puerto.');
-  ok(res, demoSailings(date));
+
+  try {
+    const externalRes = await fetchKikoto('/timetables', {
+      method: 'POST',
+      body: JSON.stringify({ departure_port_id, destination_port_id, date })
+    });
+    ok(res, externalRes.data || []);
+  } catch (err) {
+    fail(res, 'Error al obtener timetables: ' + err.message, 500);
+  }
 });
 
 // ============================================================
