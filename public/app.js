@@ -1139,6 +1139,10 @@ function showWizStep3() {
 
       <form id="wiz-pax-form" onsubmit="addPassengerAction(event)" novalidate>
         <div style="font-weight:700;font-size:0.8125rem;color:var(--gray-500);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.025em">Datos del nuevo pasajero</div>
+        <div id="fp-duplicate-warn" style="display:none;margin-bottom:16px;padding:10px 14px;background:#fef9c3;border:1px solid #facc15;border-radius:var(--radius);font-size:0.8125rem;color:var(--gray-700);align-items:center;gap:8px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Este pasajero ya existe en tu lista de pasajeros frecuentes.</span>
+        </div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
@@ -1229,10 +1233,22 @@ function showWizStep3() {
     </div>`;
 }
 
-function checkFrequentPassengerDuplicate(val) {
-  const exists = state.frequentPassengers.some(p => p.numDoc === val.trim());
+function checkFrequentPassengerDuplicate(value) {
+  const trimmed = (value || '').trim();
+  const exists = !!trimmed && state.frequentPassengers.some(p => p.numDoc === trimmed);
   const wrap = $('guardar-frecuente-wrap');
+  const warn = $('fp-duplicate-warn');
+  const cb   = $('pax-frecuente');
   if (wrap) wrap.style.display = exists ? 'none' : 'block';
+  if (warn) warn.style.display = exists ? 'flex' : 'none';
+  if (cb) {
+    cb.disabled = exists;
+    if (exists) cb.checked = false;
+    const lbl = cb.closest('label');
+    if (lbl) lbl.style.opacity = exists ? '0.5' : '';
+  }
+  const numdocInp = $('pax-numdoc');
+  if (numdocInp) numdocInp.classList.toggle('is-frequent-dup', exists);
 }
 
 function removeWizPassenger(idx) {
@@ -1359,21 +1375,25 @@ function filterFrequentPax() {
   drop.classList.add('open');
 }
 
-function selectVehicle(vehId) {
+function selectVehicle(vehId, idx) {
   const v = state.vehicles.find(v => String(v.id) === String(vehId));
-  if (!v) return;
-  const inp = $('veh-search');
+  if (!v || !state.bookingWizard?.vehicles?.[idx]) return;
+  const inp = $(`veh-search-${idx}`);
   if (inp) inp.value = `${v.marca} ${v.modelo}${v.matricula ? ' [' + v.matricula + ']' : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m`;
-  const hid = $('veh-selected-id');
+  const hid = $(`veh-selected-id-${idx}`);
   if (hid) hid.value = v.id;
-  fieldOk('e-veh-select','veh-search');
-  state.bookingWizard.vehicle = { marca:v.marca, modelo:v.modelo, matricula:v.matricula||'', ancho:v.ancho, largo:v.largo, alto:v.alto };
-  hideDropdown('drop-veh');
+  fieldOk(`e-veh-select-${idx}`, `veh-search-${idx}`);
+  Object.assign(state.bookingWizard.vehicles[idx], {
+    _mode: 'registrado', registeredId: v.id,
+    marca: v.marca, modelo: v.modelo, matricula: v.matricula || '',
+    ancho: v.ancho, largo: v.largo, alto: v.alto,
+  });
+  hideDropdown(`drop-veh-${idx}`);
 }
 
-function filterVehicles() {
-  const inp = $('veh-search');
-  const drop = $('drop-veh');
+function filterVehicles(idx) {
+  const inp = $(`veh-search-${idx}`);
+  const drop = $(`drop-veh-${idx}`);
   if (!inp || !drop) return;
   const q = inp.value.trim().toLowerCase();
   const vehicles = state.vehicles || [];
@@ -1387,7 +1407,7 @@ function filterVehicles() {
   }
   drop.innerHTML = filtered.map(v =>
     `<div class="route-option" data-id="${v.id}"
-      onmousedown="selectVehicle('${v.id}')">
+      onmousedown="selectVehicle('${v.id}', ${idx})">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       ${esc(v.marca)} ${esc(v.modelo)}${v.matricula ? ' [' + esc(v.matricula) + ']' : ''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m
     </div>`
@@ -1396,14 +1416,27 @@ function filterVehicles() {
 }
 
 // ── Paso 4: Datos del vehículo ───────────────────────────────
+function emptyVehicleEntry() {
+  const defaultMode = state.vehicles.length > 0 ? 'registrado' : 'nuevo';
+  return { _mode: defaultMode, registeredId:'', marca:'', modelo:'', matricula:'', ancho:'', largo:'', alto:'' };
+}
+
 function showWizStep4() {
   const wz = state.bookingWizard;
   if (!wz) return;
   renderWizStepBar(4, true);
   const content = $('wiz-content');
   if (!content) return;
-  const savedVehicles = state.vehicles;
-  const sv = wz.vehicle || {};
+
+  if (!Array.isArray(wz.vehicles) || wz.vehicles.length === 0) {
+    const legacy = wz.vehicle ? [{ ...wz.vehicle, _mode: 'nuevo' }] : [];
+    const cnt = wz._vehicleCount || legacy.length || 1;
+    wz.vehicles = [];
+    for (let i = 0; i < cnt; i++) wz.vehicles.push(legacy[i] || emptyVehicleEntry());
+  }
+  wz._vehicleCount = wz.vehicles.length;
+
+  const blocks = wz.vehicles.map((_, idx) => renderVehicleBlock(idx)).join('');
 
   content.innerHTML = `
     <div class="card">
@@ -1414,99 +1447,21 @@ function showWizStep4() {
         </button>
         <div>
           <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Datos del vehículo</div>
-          <div style="font-size:0.8125rem;color:var(--gray-400)">Selecciona un vehículo registrado o introduce uno nuevo</div>
+          <div style="font-size:0.8125rem;color:var(--gray-400)">Configura los datos individuales de cada vehículo añadido a la reserva</div>
         </div>
       </div>
 
-      <form id="wiz-veh-form" onsubmit="wizStep2Submit(event)" novalidate>
-        <div class="veh-mode-selector" style="margin-bottom:20px">
-          ${savedVehicles.length > 0 ? `
-          <label class="veh-mode-option active" id="veh-mode-reg-lbl">
-            <input type="radio" name="veh-mode" id="veh-mode-reg" value="registrado" checked onchange="onVehicleModeChange('registrado')">
-            <span class="veh-mode-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            </span>
-            <div>
-              <div class="veh-mode-title">Vehículo registrado</div>
-              <div class="veh-mode-sub">Usar uno de los ${savedVehicles.length} vehículo${savedVehicles.length>1?'s':''} guardado${savedVehicles.length>1?'s':''}</div>
-            </div>
-          </label>` : ''}
-          <label class="veh-mode-option ${savedVehicles.length === 0 ? 'active' : ''}" id="veh-mode-new-lbl">
-            <input type="radio" name="veh-mode" id="veh-mode-new" value="nuevo" ${savedVehicles.length === 0 ? 'checked' : ''} onchange="onVehicleModeChange('nuevo')">
-            <span class="veh-mode-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            </span>
-            <div>
-              <div class="veh-mode-title">Añadir nuevo vehículo</div>
-              <div class="veh-mode-sub">Introducir los datos manualmente</div>
-            </div>
-          </label>
+      <div style="margin-bottom:18px">
+        <span class="form-sec-label">Cantidad de vehículos</span>
+        <div class="vehicle-counter">
+          <button type="button" class="counter-btn" onclick="changeVehicleCount(-1)" id="vc-minus">−</button>
+          <div class="counter-value" id="vc-value">${wz.vehicles.length}</div>
+          <button type="button" class="counter-btn" onclick="changeVehicleCount(1)" id="vc-plus">+</button>
         </div>
+      </div>
 
-        <div id="veh-reg-panel" style="${savedVehicles.length > 0 ? '' : 'display:none'}">
-          <div style="margin-bottom:18px;position:relative">
-            <label class="form-label">Selecciona el vehículo</label>
-            <input type="text" class="form-input" id="veh-search" value="" placeholder="Escribe para buscar vehículo..." autocomplete="off"
-              oninput="filterVehicles(this)" onfocus="filterVehicles(this)" onblur="setTimeout(()=>hideDropdown('drop-veh'),180)">
-            <div class="route-dropdown" id="drop-veh"></div>
-            <input type="hidden" id="veh-selected-id" value="">
-            <span class="error-msg" id="e-veh-select"></span>
-          </div>
-        </div>
-
-        <div id="veh-new-fields" style="${savedVehicles.length > 0 ? 'display:none' : ''}">
-          <div class="form-grid" style="margin-bottom:0">
-            <div class="form-group">
-              <label class="form-label">Marca <span style="color:var(--danger)">*</span></label>
-              <input type="text" id="veh-mar" class="form-input" placeholder="Ej: Mercedes" value="${esc(sv.marca||'')}">
-              <span class="error-msg" id="e-veh-mar"></span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Modelo <span style="color:var(--danger)">*</span></label>
-              <input type="text" id="veh-mod" class="form-input" placeholder="Ej: Sprinter" value="${esc(sv.modelo||'')}">
-              <span class="error-msg" id="e-veh-mod"></span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Matrícula</label>
-              <input type="text" id="veh-mat" class="form-input" placeholder="Ej: 1234BBB" oninput="this.value=this.value.toUpperCase()" value="${esc(sv.matricula||'')}">
-            </div>
-          </div>
-          <div class="form-grid-3">
-            <div class="form-group">
-              <label class="form-label">Ancho <span style="color:var(--danger)">*</span></label>
-              <div style="display:flex">
-                <input type="number" id="veh-anc" class="form-input" placeholder="2.10" step="0.01" min="0.01" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" value="${sv.ancho||''}">
-                <div class="input-addon-right">m</div>
-              </div>
-              <span class="error-msg" id="e-veh-anc"></span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Largo <span style="color:var(--danger)">*</span></label>
-              <div style="display:flex">
-                <input type="number" id="veh-lar" class="form-input" placeholder="5.90" step="0.01" min="0.01" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" value="${sv.largo||''}">
-                <div class="input-addon-right">m</div>
-              </div>
-              <span class="error-msg" id="e-veh-lar"></span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Alto <span style="color:var(--danger)">*</span></label>
-              <div style="display:flex">
-                <input type="number" id="veh-alt" class="form-input" placeholder="2.80" step="0.01" min="0.01" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" value="${sv.alto||''}">
-                <div class="input-addon-right">m</div>
-              </div>
-              <span class="error-msg" id="e-veh-alt"></span>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:18px;margin-bottom:16px">
-          <span class="form-sec-label">Cantidad de vehículos</span>
-          <div class="vehicle-counter">
-            <button type="button" class="counter-btn" onclick="changeVehicleCount(-1)" id="vc-minus">−</button>
-            <div class="counter-value" id="vc-value">1</div>
-            <button type="button" class="counter-btn" onclick="changeVehicleCount(1)" id="vc-plus">+</button>
-          </div>
-        </div>
+      <form id="wiz-veh-form" onsubmit="wizStep4Submit(event)" novalidate>
+        ${blocks}
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">
           <button type="button" class="btn btn-secondary" style="width:auto" onclick="showWizStep3()">← Volver</button>
@@ -1515,65 +1470,197 @@ function showWizStep4() {
       </form>
     </div>`;
 
-  // Initialize counter
-  state.bookingWizard._vehicleCount = state.bookingWizard._vehicleCount || 1;
-  const vcEl = $('vc-value');
-  if (vcEl) vcEl.textContent = state.bookingWizard._vehicleCount;
   updateCounterBtns();
 }
 
-function onVehicleModeChange(mode) {
-  const regPanel  = $('veh-reg-panel');
-  const newFields = $('veh-new-fields');
-  const regLbl    = $('veh-mode-reg-lbl');
-  const newLbl    = $('veh-mode-new-lbl');
-  if (mode === 'registrado') {
-    if (regPanel)  regPanel.style.display  = '';
-    if (newFields) newFields.style.display = 'none';
-    if (regLbl)    regLbl.classList.add('active');
-    if (newLbl)    newLbl.classList.remove('active');
-    // Show vehicle dropdown options on focus
+function renderVehicleBlock(idx) {
+  const wz = state.bookingWizard;
+  const v  = wz.vehicles[idx];
+  const savedVehicles = state.vehicles;
+  const hasReg = savedVehicles.length > 0;
+  const mode   = v._mode || (hasReg ? 'registrado' : 'nuevo');
+  const regSel = (v.registeredId && hasReg)
+    ? `${esc(v.marca||'')} ${esc(v.modelo||'')}${v.matricula?` [${esc(v.matricula)}]`:''} — ${v.largo}m × ${v.ancho}m × ${v.alto}m`
+    : '';
+
+  return `
+  <div class="vehicle-block" data-idx="${idx}" style="border:1px solid var(--gray-200);border-radius:var(--radius);padding:18px;margin-bottom:18px;background:var(--gray-50)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius-full);background:var(--primary);color:#fff;font-weight:700;font-size:0.8125rem">${idx + 1}</span>
+        <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Vehículo ${idx + 1}</div>
+      </div>
+      ${wz.vehicles.length > 1 ? `<button type="button" class="btn-icon-danger" onclick="removeVehicleBlock(${idx})" title="Eliminar vehículo">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>` : ''}
+    </div>
+
+    <div class="veh-mode-selector" style="margin-bottom:16px">
+      ${hasReg ? `
+      <label class="veh-mode-option ${mode==='registrado'?'active':''}" id="veh-mode-reg-lbl-${idx}">
+        <input type="radio" name="veh-mode-${idx}" value="registrado" ${mode==='registrado'?'checked':''} onchange="onVehicleModeChange(${idx},'registrado')">
+        <span class="veh-mode-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </span>
+        <div>
+          <div class="veh-mode-title">Vehículo registrado</div>
+          <div class="veh-mode-sub">Usar uno guardado en la flota</div>
+        </div>
+      </label>` : ''}
+      <label class="veh-mode-option ${mode==='nuevo'?'active':''}" id="veh-mode-new-lbl-${idx}">
+        <input type="radio" name="veh-mode-${idx}" value="nuevo" ${mode==='nuevo'?'checked':''} onchange="onVehicleModeChange(${idx},'nuevo')">
+        <span class="veh-mode-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </span>
+        <div>
+          <div class="veh-mode-title">Añadir nuevo</div>
+          <div class="veh-mode-sub">Introducir datos manualmente</div>
+        </div>
+      </label>
+    </div>
+
+    <div id="veh-reg-panel-${idx}" style="${mode==='registrado'?'':'display:none'}">
+      <div style="margin-bottom:0;position:relative">
+        <label class="form-label">Selecciona el vehículo</label>
+        <input type="text" class="form-input" id="veh-search-${idx}" value="${regSel}" placeholder="Escribe para buscar vehículo..." autocomplete="off"
+          oninput="filterVehicles(${idx})" onfocus="filterVehicles(${idx})" onblur="setTimeout(()=>hideDropdown('drop-veh-${idx}'),180)">
+        <div class="route-dropdown" id="drop-veh-${idx}"></div>
+        <input type="hidden" id="veh-selected-id-${idx}" value="${v.registeredId||''}">
+        <span class="error-msg" id="e-veh-select-${idx}"></span>
+      </div>
+    </div>
+
+    <div id="veh-new-fields-${idx}" style="${mode==='nuevo'?'':'display:none'}">
+      <div class="form-grid" style="margin-bottom:0">
+        <div class="form-group">
+          <label class="form-label">Marca <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="veh-mar-${idx}" class="form-input" placeholder="Ej: Mercedes" value="${esc(v.marca||'')}">
+          <span class="error-msg" id="e-veh-mar-${idx}"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modelo <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="veh-mod-${idx}" class="form-input" placeholder="Ej: Sprinter" value="${esc(v.modelo||'')}">
+          <span class="error-msg" id="e-veh-mod-${idx}"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Matrícula</label>
+          <input type="text" id="veh-mat-${idx}" class="form-input" placeholder="Ej: 1234BBB" oninput="this.value=this.value.toUpperCase()" value="${esc(v.matricula||'')}">
+        </div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label class="form-label">Ancho <span style="color:var(--danger)">*</span></label>
+          <div style="display:flex">
+            <input type="number" id="veh-anc-${idx}" class="form-input" placeholder="2.10" step="0.01" min="0.01" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" value="${v.ancho||''}">
+            <div class="input-addon-right">m</div>
+          </div>
+          <span class="error-msg" id="e-veh-anc-${idx}"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Largo <span style="color:var(--danger)">*</span></label>
+          <div style="display:flex">
+            <input type="number" id="veh-lar-${idx}" class="form-input" placeholder="5.90" step="0.01" min="0.01" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" value="${v.largo||''}">
+            <div class="input-addon-right">m</div>
+          </div>
+          <span class="error-msg" id="e-veh-lar-${idx}"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alto <span style="color:var(--danger)">*</span></label>
+          <div style="display:flex">
+            <input type="number" id="veh-alt-${idx}" class="form-input" placeholder="2.80" step="0.01" min="0.01" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" value="${v.alto||''}">
+            <div class="input-addon-right">m</div>
+          </div>
+          <span class="error-msg" id="e-veh-alt-${idx}"></span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function readVehicleBlock(idx) {
+  const wz = state.bookingWizard;
+  if (!wz?.vehicles?.[idx]) return;
+  const v = wz.vehicles[idx];
+  const modeEl = document.querySelector(`input[name="veh-mode-${idx}"]:checked`);
+  if (modeEl) v._mode = modeEl.value;
+  if (v._mode === 'registrado') {
+    v.registeredId = val(`veh-selected-id-${idx}`) || v.registeredId || '';
   } else {
-    if (regPanel)  regPanel.style.display  = 'none';
-    if (newFields) newFields.style.display = '';
-    if (newLbl)    newLbl.classList.add('active');
-    if (regLbl)    regLbl.classList.remove('active');
-    // Clear vehicle search selection
-    const s = $('veh-search'); if (s) s.value = '';
-    const h = $('veh-selected-id'); if (h) h.value = '';
+    v.marca     = (val(`veh-mar-${idx}`) || '').trim();
+    v.modelo    = (val(`veh-mod-${idx}`) || '').trim();
+    v.matricula = (val(`veh-mat-${idx}`) || '').trim();
+    v.ancho     = val(`veh-anc-${idx}`) || '';
+    v.largo     = val(`veh-lar-${idx}`) || '';
+    v.alto      = val(`veh-alt-${idx}`) || '';
   }
 }
 
-function wizStep2Submit(e) {
-  e.preventDefault();
-  const modeEl = document.querySelector('input[name="veh-mode"]:checked');
-  const mode   = modeEl ? modeEl.value : 'nuevo';
+function persistAllVehicleBlocks() {
+  const wz = state.bookingWizard;
+  if (!wz?.vehicles) return;
+  wz.vehicles.forEach((_, i) => readVehicleBlock(i));
+}
 
-  if (mode === 'registrado') {
-    const selVal = val('veh-selected-id');
-    if (!selVal) { fieldErr('e-veh-select','veh-search','Selecciona un vehículo'); return; }
-    fieldOk('e-veh-select','veh-search');
-    const v = state.vehicles.find(v=>String(v.id)===selVal);
-    if (v) state.bookingWizard.vehicle = { marca:v.marca, modelo:v.modelo, matricula:v.matricula||'', ancho:v.ancho, largo:v.largo, alto:v.alto };
-  } else {
-    const mar = val('veh-mar').trim();
-    const mod = val('veh-mod').trim();
-    const mat = val('veh-mat').trim();
-    const anc = parseFloat(val('veh-anc'));
-    const lar = parseFloat(val('veh-lar'));
-    const alt = parseFloat(val('veh-alt'));
-    let ok = true;
+function onVehicleModeChange(idx, mode) {
+  const wz = state.bookingWizard;
+  if (!wz?.vehicles?.[idx]) return;
+  readVehicleBlock(idx);
+  wz.vehicles[idx]._mode = mode;
 
-    if (!mar) { fieldErr('e-veh-mar','veh-mar','La marca es obligatoria'); ok=false; } else fieldOk('e-veh-mar','veh-mar');
-    if (!mod) { fieldErr('e-veh-mod','veh-mod','El modelo es obligatorio'); ok=false; } else fieldOk('e-veh-mod','veh-mod');
-    if (isNaN(anc)||anc<=0) { fieldErr('e-veh-anc','veh-anc','Valor positivo requerido'); ok=false; } else fieldOk('e-veh-anc','veh-anc');
-    if (isNaN(lar)||lar<=0) { fieldErr('e-veh-lar','veh-lar','Valor positivo requerido'); ok=false; } else fieldOk('e-veh-lar','veh-lar');
-    if (isNaN(alt)||alt<=0) { fieldErr('e-veh-alt','veh-alt','Valor positivo requerido'); ok=false; } else fieldOk('e-veh-alt','veh-alt');
-    if (!ok) return;
+  const reg = $(`veh-reg-panel-${idx}`);
+  const nw  = $(`veh-new-fields-${idx}`);
+  const rl  = $(`veh-mode-reg-lbl-${idx}`);
+  const nl  = $(`veh-mode-new-lbl-${idx}`);
+  if (reg) reg.style.display = mode === 'registrado' ? '' : 'none';
+  if (nw)  nw.style.display  = mode === 'nuevo' ? '' : 'none';
+  if (rl)  rl.classList.toggle('active', mode === 'registrado');
+  if (nl)  nl.classList.toggle('active', mode === 'nuevo');
 
-    state.bookingWizard.vehicle = { marca:mar, modelo:mod, matricula:mat, ancho:anc, largo:lar, alto:alt };
+  if (mode === 'nuevo') {
+    const s = $(`veh-search-${idx}`); if (s) s.value = '';
+    const h = $(`veh-selected-id-${idx}`); if (h) h.value = '';
+    wz.vehicles[idx].registeredId = '';
   }
+}
 
+function removeVehicleBlock(idx) {
+  const wz = state.bookingWizard;
+  if (!wz?.vehicles) return;
+  persistAllVehicleBlocks();
+  wz.vehicles.splice(idx, 1);
+  if (wz.vehicles.length === 0) wz.vehicles.push(emptyVehicleEntry());
+  wz._vehicleCount = wz.vehicles.length;
+  showWizStep4();
+}
+
+function wizStep4Submit(e) {
+  e.preventDefault();
+  persistAllVehicleBlocks();
+  const wz = state.bookingWizard;
+  let allOk = true;
+
+  wz.vehicles.forEach((v, idx) => {
+    if (v._mode === 'registrado') {
+      if (!v.registeredId) { fieldErr(`e-veh-select-${idx}`, `veh-search-${idx}`, 'Selecciona un vehículo'); allOk = false; }
+      else fieldOk(`e-veh-select-${idx}`, `veh-search-${idx}`);
+    } else {
+      const anc = parseFloat(v.ancho), lar = parseFloat(v.largo), alt = parseFloat(v.alto);
+      if (!v.marca)  { fieldErr(`e-veh-mar-${idx}`, `veh-mar-${idx}`, 'La marca es obligatoria'); allOk = false; } else fieldOk(`e-veh-mar-${idx}`, `veh-mar-${idx}`);
+      if (!v.modelo) { fieldErr(`e-veh-mod-${idx}`, `veh-mod-${idx}`, 'El modelo es obligatorio'); allOk = false; } else fieldOk(`e-veh-mod-${idx}`, `veh-mod-${idx}`);
+      if (isNaN(anc)||anc<=0) { fieldErr(`e-veh-anc-${idx}`, `veh-anc-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-anc-${idx}`, `veh-anc-${idx}`);
+      if (isNaN(lar)||lar<=0) { fieldErr(`e-veh-lar-${idx}`, `veh-lar-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-lar-${idx}`, `veh-lar-${idx}`);
+      if (isNaN(alt)||alt<=0) { fieldErr(`e-veh-alt-${idx}`, `veh-alt-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-alt-${idx}`, `veh-alt-${idx}`);
+    }
+  });
+
+  if (!allOk) return;
+
+  wz.vehicles = wz.vehicles.map(v => ({
+    marca: v.marca, modelo: v.modelo, matricula: v.matricula || '',
+    ancho: parseFloat(v.ancho), largo: parseFloat(v.largo), alto: parseFloat(v.alto),
+  }));
+  wz.vehicle = wz.vehicles[0];
+  wz._vehicleCount = wz.vehicles.length;
   showWizStep5();
 }
 
@@ -1657,7 +1744,22 @@ function showWizStep5() {
         `).join('')}
       </div>
 
-      ${veh ? `
+      ${(Array.isArray(wz.vehicles) && wz.vehicles.length > 0) ? `
+      <!-- Bloque: Vehículos -->
+      <div class="wiz-summary-block">
+        <div class="wiz-summary-block-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Vehículos (${wz.vehicles.length})
+        </div>
+        ${wz.vehicles.map((vh, i) => `
+          <div style="${i > 0 ? 'margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100)' : ''}">
+            <div style="font-weight:600;font-size:0.875rem;margin-bottom:6px">${i + 1}. ${esc(vh.marca||'')} ${esc(vh.modelo||'')}${vh.matricula ? ` · ${esc(vh.matricula)}` : ''}</div>
+            <div class="wiz-summary-grid">
+              <div class="wiz-summary-row"><span class="wiz-sum-label">Dimensiones</span><span class="wiz-sum-val">${vh.largo}m × ${vh.ancho}m × ${vh.alto}m (L × A × H)</span></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>` : (veh ? `
       <!-- Bloque: Vehículo -->
       <div class="wiz-summary-block">
         <div class="wiz-summary-block-title">
@@ -1668,7 +1770,7 @@ function showWizStep5() {
           <div class="wiz-summary-row"><span class="wiz-sum-label">Marca / Modelo</span><span class="wiz-sum-val">${esc(veh.marca)} ${esc(veh.modelo)}</span></div>
           <div class="wiz-summary-row"><span class="wiz-sum-label">Dimensiones</span><span class="wiz-sum-val">${veh.largo}m × ${veh.ancho}m × ${veh.alto}m (L × A × H)</span></div>
         </div>
-      </div>` : ''}
+      </div>` : '')}
 
       ${wz.petDetails ? `
       <!-- Bloque: Mascota -->
@@ -1703,6 +1805,7 @@ async function doFinalizeBooking(e) {
   const wz = state.bookingWizard;
   if (!wz) return;
 
+  const vehiclesList = Array.isArray(wz.vehicles) ? wz.vehicles : (wz.vehicle ? [wz.vehicle] : []);
   const payload = {
     tripType:      wz.tripType,
     origin:        wz.origin,
@@ -1712,8 +1815,9 @@ async function doFinalizeBooking(e) {
     departureTime: wz.selectedSailing.departureTime,
     returnDate:    wz.dateVuelta || null,
     passengers:    wz.passengers,
-    vehicleData:   wz.vehicle   || null,
-    vehicleCount:  wz._vehicleCount || (wz.vehicle ? 1 : 0),
+    vehicles:      vehiclesList,
+    vehicleData:   vehiclesList[0] || null,
+    vehicleCount:  vehiclesList.length,
     petDetails:    wz.petDetails || null,
   };
 
@@ -2827,17 +2931,22 @@ function getNavieraLogo(name, size = 'lg') {
 // VEHICLE COUNTER
 // ============================================================
 function changeVehicleCount(delta) {
-  if (!state.bookingWizard) return;
-  const current = state.bookingWizard._vehicleCount || 1;
-  const next = Math.max(1, Math.min(10, current + delta));
-  state.bookingWizard._vehicleCount = next;
-  const vcEl = $('vc-value');
-  if (vcEl) vcEl.textContent = next;
-  updateCounterBtns();
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  if (!Array.isArray(wz.vehicles)) wz.vehicles = [];
+  persistAllVehicleBlocks();
+  const next = Math.max(1, Math.min(10, wz.vehicles.length + delta));
+  if (next > wz.vehicles.length) {
+    while (wz.vehicles.length < next) wz.vehicles.push(emptyVehicleEntry());
+  } else if (next < wz.vehicles.length) {
+    wz.vehicles.length = next;
+  }
+  wz._vehicleCount = wz.vehicles.length;
+  showWizStep4();
 }
 
 function updateCounterBtns() {
-  const count = state.bookingWizard?._vehicleCount || 1;
+  const count = state.bookingWizard?.vehicles?.length || 1;
   const minus = $('vc-minus');
   const plus  = $('vc-plus');
   if (minus) minus.disabled = count <= 1;

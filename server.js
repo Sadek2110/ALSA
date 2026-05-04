@@ -290,6 +290,15 @@ function bookingToJson(r) {
       marca:r.veh_marca, modelo:r.veh_modelo, matricula:r.veh_matricula||'',
       ancho:parseFloat(r.veh_ancho)||0, largo:parseFloat(r.veh_largo)||0, alto:parseFloat(r.veh_alto)||0,
     } : null,
+    vehicles: (() => {
+      if (r.vehicles_list) {
+        try { return JSON.parse(r.vehicles_list); } catch { /* fallthrough */ }
+      }
+      return r.veh_marca ? [{
+        marca:r.veh_marca, modelo:r.veh_modelo, matricula:r.veh_matricula||'',
+        ancho:parseFloat(r.veh_ancho)||0, largo:parseFloat(r.veh_largo)||0, alto:parseFloat(r.veh_alto)||0,
+      }] : [];
+    })(),
     petDetails: r.with_pet ? { num:r.pet_num, raza:r.pet_raza } : null,
   };
 }
@@ -327,9 +336,11 @@ app.post('/api/bookings', requireAuth, (req, res) => {
   }
   if (errors.length) return fail(res, errors.join('; '));
 
-  const veh = b.vehicleData   || null;
+  const vehiclesList = Array.isArray(b.vehicles) ? b.vehicles.filter(Boolean) : [];
+  const veh = vehiclesList[0] || b.vehicleData || null;
+  if (vehiclesList.length === 0 && veh) vehiclesList.push(veh);
   const pet = b.petDetails    || null;
-  const vehicleCount = parseInt(b.vehicleCount) || (veh ? 1 : 0);
+  const vehicleCount = vehiclesList.length || parseInt(b.vehicleCount) || 0;
   const groupId = b.groupId || `GRP-${Date.now()}`;
 
   const results = [];
@@ -350,6 +361,10 @@ app.post('/api/bookings', requireAuth, (req, res) => {
       veh_largo: idx === 0 ? (veh ? parseFloat(veh.largo) : null) : null,
       veh_alto: idx === 0 ? (veh ? parseFloat(veh.alto) : null) : null,
       vehicle_count: idx === 0 ? vehicleCount : 0,
+      vehicles_list: idx === 0 && vehiclesList.length > 0 ? JSON.stringify(vehiclesList.map(v => ({
+        marca: v.marca || '', modelo: v.modelo || '', matricula: v.matricula || '',
+        ancho: parseFloat(v.ancho) || 0, largo: parseFloat(v.largo) || 0, alto: parseFloat(v.alto) || 0,
+      }))) : null,
       group_id: groupId,
       with_pet: idx === 0 ? (pet ? 1 : 0) : 0,
       pet_num: idx === 0 ? (pet ? (pet.num || null) : null) : null,

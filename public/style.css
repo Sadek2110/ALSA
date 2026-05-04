@@ -324,7 +324,7 @@ select.form-input.is-error:focus {
 }
 
 .logo-icon {
-  height: 36px;
+  height: 48px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
@@ -339,24 +339,25 @@ select.form-input.is-error:focus {
 }
 
 .logo-text-main {
-  font-size: 1.375rem;
+  font-size: 1.625rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #4b5563;
+  letter-spacing: -0.025em;
+  color: var(--gray-900);
   line-height: 1;
 }
 
 .logo-text-sub {
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: #9ca3af;
-  margin-top: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+  margin-top: 4px;
+  text-transform: uppercase;
 }
 
 /* Imagen de nombre del logo */
 .logo-nombre {
-  height: 38px;
+  height: 52px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
@@ -367,20 +368,21 @@ select.form-input.is-error:focus {
 .login-right-logo .logo-nombre { filter: brightness(0) invert(1); }
 
 .login-right .logo-combo {
-  margin-bottom: 36px;
+  margin-bottom: 40px;
   position: relative;
   z-index: 1;
+  gap: 14px;
 }
-.login-right .logo-icon   { height: 64px; }
-.login-right .logo-nombre { height: 58px; }
+.login-right .logo-icon   { height: 92px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.18)); }
+.login-right .logo-nombre { height: 80px; }
 
-/* Sidebar — imagen de nombre en blanco */
-.sidebar-logo .logo-nombre { filter: brightness(0) invert(1); height: 36px; }
+/* Sidebar — imagen de nombre en blanco, presencia reforzada */
+.sidebar-logo .logo-nombre { filter: brightness(0) invert(1); height: 46px; }
 
 /* Página de activación de contraseña */
-.reg-logo .logo-combo { gap: 9px; }
-.reg-logo .logo-icon  { height: 46px; }
-.reg-logo .logo-nombre { height: 42px; }
+.reg-logo .logo-combo { gap: 12px; }
+.reg-logo .logo-icon  { height: 60px; }
+.reg-logo .logo-nombre { height: 56px; }
 
 .dash-illus {
   position: relative;
@@ -429,8 +431,8 @@ select.form-input.is-error:focus {
   cursor: pointer;
 }
 .sidebar-logo:hover { background: rgba(255,255,255,0.07); }
-.sidebar-logo .logo-icon { height: 30px; filter: brightness(0) invert(1); }
-.sidebar-logo .logo-name { height: 18px; }
+.sidebar-logo .logo-icon { height: 42px; filter: brightness(0) invert(1); }
+.sidebar-logo .logo-name { height: 24px; }
 .sidebar-logo .logo-text-main { color: white !important; }
 .sidebar-logo .logo-text-sub  { color: rgba(255,255,255,0.55) !important; }
 
@@ -851,43 +853,76 @@ input[type="time"] {
   color-scheme: light;
   position: relative;
   cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  accent-color: var(--primary);
+  border-radius: var(--radius);
+  transition: var(--transition);
+}
+
+input[type="date"]:hover,
+input[type="datetime-local"]:hover,
+input[type="time"]:hover {
+  border-color: var(--primary-light);
+}
+
+input[type="date"]:focus,
+input[type="datetime-local"]:focus,
+input[type="time"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(61,142,232,0.15), 0 2px 8px rgba(61,142,232,0.08);
+  background: #fafcff;
+}
+
+.form-input.is-frequent-dup {
+  border-color: #facc15;
+  background: #fffbeb;
 }
 
 /* Custom calendar/clock icon via webkit pseudo-element */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   background-color: transparent;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 16px 16px;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   cursor: pointer;
-  opacity: 0.65;
-  transition: opacity 0.15s ease;
-  border-radius: 4px;
+  opacity: 0.7;
+  transition: var(--transition);
+  border-radius: var(--radius-sm);
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
   background-color: var(--primary-50);
+  transform: scale(1.05);
 }
 
 input[type="time"]::-webkit-calendar-picker-indicator {
   background-color: transparent;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8ee8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 16px 16px;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   cursor: pointer;
-  opacity: 0.65;
-  transition: opacity 0.15s ease;
+  opacity: 0.7;
+  transition: var(--transition);
+  border-radius: var(--radius-sm);
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--primary-50);
+  transform: scale(1.05);
 }
 
 /* Field parts colors (webkit/blink) */
