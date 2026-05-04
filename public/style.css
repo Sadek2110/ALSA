@@ -324,10 +324,19 @@ select.form-input.is-error:focus {
 }
 
 .logo-icon {
-  height: 48px;
+  height: 56px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
+}
+
+.logo-text-bold {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  display: flex;
+  align-items: center;
+  color: var(--primary);
 }
 
 .logo-text {
@@ -365,7 +374,7 @@ select.form-input.is-error:focus {
 
 /* Panel derecho del login — icono e imagen de nombre en blanco */
 .login-right-logo .logo-icon   { filter: brightness(0) invert(1); }
-.login-right-logo .logo-nombre { filter: brightness(0) invert(1); }
+.login-right-logo .logo-text-bold { color: #fff; }
 
 .login-right .logo-combo {
   margin-bottom: 40px;
@@ -374,15 +383,13 @@ select.form-input.is-error:focus {
   gap: 14px;
 }
 .login-right .logo-icon   { height: 92px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.18)); }
-.login-right .logo-nombre { height: 80px; }
 
 /* Sidebar — imagen de nombre en blanco, presencia reforzada */
-.sidebar-logo .logo-nombre { filter: brightness(0) invert(1); height: 46px; }
+.sidebar-logo .logo-text-bold { color: #fff; }
 
 /* Página de activación de contraseña */
 .reg-logo .logo-combo { gap: 12px; }
 .reg-logo .logo-icon  { height: 60px; }
-.reg-logo .logo-nombre { height: 56px; }
 
 .dash-illus {
   position: relative;
@@ -2514,3 +2521,17 @@ select.form-input option[value=""] {
   .modal-content { max-width: 900px; }
 }
 
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(48%) sepia(99%) saturate(1478%) hue-rotate(193deg) brightness(98%) contrast(90%);
+  transition: transform 0.2s ease;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  transform: scale(1.15);
+}
+input[type="date"] {
+  font-family: inherit;
+  color: var(--gray-700);
+  border-radius: var(--radius);
+}

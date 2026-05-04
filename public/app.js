@@ -1015,24 +1015,21 @@ function mergeResults(sailings, timetables, date) {
   if (sailings.length > 0) {
     sailings.forEach(s => {
       const tt = timetables.find(t => (t.company_id||t.naviera_id) === (s.company_id||s.naviera_id)) || {};
+      const nav = s.shipping_company?.name || s.company_name || s.naviera || s.name || 'Naviera';
+      const depDate = s.departure_datetime ? s.departure_datetime.split('T')[0] : (s.departureDate || tt.date || s.date || date);
+      const depTime = s.departure_datetime ? s.departure_datetime.split('T')[1].substring(0,5) : (s.departureTime || tt.departure_time || s.departure_time || s.hora_salida || '—');
+
       results.push({
-        naviera:       s.company_name || s.naviera || s.name || 'Naviera',
-        departureDate: s.departureDate || tt.date || s.date || date,
-        departureTime: s.departureTime || tt.departure_time || s.departure_time || s.hora_salida || '—',
+        naviera: nav,
+        departureDate: depDate,
+        departureTime: depTime,
         raw: s
       });
     });
     return results;
   }
 
-  // Fallback demo data
-  return [
-    { naviera:'Balearia',          departureDate: date, departureTime:'07:30', raw:{} },
-    { naviera:'Trasmediterránea',  departureDate: date, departureTime:'10:00', raw:{} },
-    { naviera:'FRS',               departureDate: date, departureTime:'12:15', raw:{} },
-    { naviera:'Armas Trasatlántica', departureDate: date, departureTime:'14:45', raw:{} },
-    { naviera:'GNV',               departureDate: date, departureTime:'17:30', raw:{} },
-  ];
+  return [];
 }
 
 // ── Paso 2: Disponibilidad ────────────────────────────────────
@@ -1239,7 +1236,10 @@ function checkFrequentPassengerDuplicate(value) {
   const wrap = $('guardar-frecuente-wrap');
   const warn = $('fp-duplicate-warn');
   const cb   = $('pax-frecuente');
-  if (wrap) wrap.style.display = exists ? 'none' : 'block';
+  if (wrap) {
+    wrap.style.display = 'block';
+    wrap.style.opacity = exists ? '0.6' : '1';
+  }
   if (warn) warn.style.display = exists ? 'flex' : 'none';
   if (cb) {
     cb.disabled = exists;
@@ -1432,7 +1432,7 @@ function showWizStep4() {
     const legacy = wz.vehicle ? [{ ...wz.vehicle, _mode: 'nuevo' }] : [];
     const cnt = wz._vehicleCount || legacy.length || 1;
     wz.vehicles = [];
-    for (let i = 0; i < cnt; i++) wz.vehicles.push(legacy[i] || emptyVehicleEntry());
+    for (let i = 0; i < cnt; i++) wz.vehicles.push((i === 0 ? legacy[0] : null) || emptyVehicleEntry());
   }
   wz._vehicleCount = wz.vehicles.length;
 
@@ -1783,11 +1783,12 @@ function showWizStep5() {
       </div>` : ''}
 
       <form id="wiz-confirm-form" onsubmit="doFinalizeBooking(event)" novalidate>
-        <div style="margin:16px 0 20px${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? ';display:none' : ''}" id="guardar-frecuente-wrap">
+        <div style="margin:16px 0 20px; opacity: ${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? '0.6' : '1'};" id="guardar-frecuente-wrap">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
-            <input type="checkbox" id="pax-frecuente" style="width:17px;height:17px;accent-color:var(--primary)">
+            <input type="checkbox" id="pax-frecuente" ${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? 'disabled' : ''} style="width:17px;height:17px;accent-color:var(--primary)">
             Guardar pasajero como frecuente para futuras reservas
           </label>
+          ${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? '<span style="color:var(--danger);font-size:0.75rem;display:block;margin-top:4px;">Este pasajero ya existe en favoritos.</span>' : ''}
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button type="button" class="btn btn-secondary" style="width:auto" onclick="${wz.withVehicle ? 'showWizStep4()' : 'showWizStep3()'}">← Volver</button>
