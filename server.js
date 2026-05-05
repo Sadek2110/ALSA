@@ -27,53 +27,70 @@ async function sendBookingEmail(booking) {
   const b = booking;
   const idaVuelta = b.tripType === 'idayvuelta';
 
-  // Vehicles list
   const vehiclesList = b.vehicles || (b.vehicle ? [b.vehicle] : []);
+
+  // ── VEHÍCULOS: cada campo del formulario en su propia fila ──
   const vehiclesHtml = vehiclesList.length > 0
     ? vehiclesList.map((v, i) => `
-      <tr><td style="padding:6px 0;color:#6b7280">Vehículo ${i + 1}</td><td style="padding:6px 0;font-weight:600">${v.marca || ''} ${v.modelo || ''}${v.matricula ? ' · ' + v.matricula : ''}</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280">Dimensiones</td><td style="padding:4px 0">${v.largo || 0}m × ${v.ancho || 0}m × ${v.alto || 0}m (L × A × H)</td></tr>
+      <tr><td colspan="2" style="padding:10px 0 4px;font-weight:700;font-size:14px;color:#1a56db">Vehículo ${i + 1}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;width:35%">Marca</td><td style="padding:4px 0;font-weight:600">${v.marca || ''}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Modelo</td><td style="padding:4px 0;font-weight:600">${v.modelo || ''}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Matrícula</td><td style="padding:4px 0;font-weight:600">${v.matricula || ''}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Largo</td><td style="padding:4px 0">${v.largo || ''} m</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Ancho</td><td style="padding:4px 0">${v.ancho || ''} m</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Alto</td><td style="padding:4px 0">${v.alto || ''} m</td></tr>
     `).join('')
     : '<tr><td colspan="2" style="padding:6px 0;color:#6b7280">Sin vehículo</td></tr>';
 
-  // Passenger list with all data
+  // ── PASAJEROS: todos los datos del formulario, fila por fila ──
   const passengersHtml = (b.passengers || []).map((p, i) => `
-    <tr><td colspan="2" style="padding:10px 0 6px;font-weight:700;font-size:14px;color:#1a56db">Pasajero ${i + 1}${p.isDriver ? ' 🚗 Conductor' : ''}</td></tr>
-    <tr><td style="padding:3px 0;color:#6b7280">Nombre completo</td><td style="padding:3px 0;font-weight:600">${p.nombre || ''} ${p.apellido1 || ''} ${p.apellido2 || ''}</td></tr>
-    <tr><td style="padding:3px 0;color:#6b7280">Documento</td><td style="padding:3px 0">${p.tipoDoc || ''} ${p.numDoc || ''}${p.expDoc ? ' · Exp: ' + p.expDoc : ''}</td></tr>
-    <tr><td style="padding:3px 0;color:#6b7280">Email</td><td style="padding:3px 0">${p.email || ''}</td></tr>
-    <tr><td style="padding:3px 0;color:#6b7280">Teléfono</td><td style="padding:3px 0">${p.telefono || ''}</td></tr>
-    <tr><td style="padding:3px 0;color:#6b7280">Nacimiento</td><td style="padding:3px 0">${p.fnac || ''} · ${p.nacionalidad || ''}</td></tr>
+    <tr><td colspan="2" style="padding:10px 0 4px;font-weight:700;font-size:14px;color:#1a56db">Pasajero ${i + 1}${p.isDriver ? ' — Conductor' : ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280;width:35%">Nombre</td><td style="padding:4px 0;font-weight:600">${p.nombre || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Primer apellido</td><td style="padding:4px 0">${p.apellido1 || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Segundo apellido</td><td style="padding:4px 0">${p.apellido2 || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Tipo de documento</td><td style="padding:4px 0">${p.tipoDoc || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Número de documento</td><td style="padding:4px 0;font-weight:600">${p.numDoc || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Fecha de expiración</td><td style="padding:4px 0">${p.expDoc || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Email</td><td style="padding:4px 0">${p.email || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Teléfono</td><td style="padding:4px 0">${p.telefono || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Fecha de nacimiento</td><td style="padding:4px 0">${p.fnac || ''}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Nacionalidad</td><td style="padding:4px 0">${p.nacionalidad || ''}</td></tr>
   `).join('');
 
   const html = `
-<div style="font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff">
   <div style="background:linear-gradient(135deg,#1a56db,#2563eb);padding:28px;text-align:center">
     <h1 style="color:white;font-size:22px;margin:0">ALSA — Nueva Reserva</h1>
-    <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">${b.origin || ''} → ${b.destination || ''}</p>
+    <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px">${b.origin || ''} → ${b.destination || ''}</p>
   </div>
   <div style="padding:24px">
-    <h3 style="color:#1a56db;margin-top:0;border-bottom:1px solid #eee;padding-bottom:8px">Detalles del Viaje</h3>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <tr><td style="padding:8px 0;color:#6b7280">Tipo</td><td style="padding:8px 0;font-weight:600">${idaVuelta ? 'Ida y vuelta' : 'Ida'}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Ruta</td><td style="padding:8px 0;font-weight:600">${b.origin || ''} → ${b.destination || ''}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Naviera</td><td style="padding:8px 0;font-weight:600">${b.naviera || ''}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Salida</td><td style="padding:8px 0;font-weight:600">${b.departureDate || ''} ${b.departureTime || ''}</td></tr>
-      ${idaVuelta ? `<tr><td style="padding:8px 0;color:#6b7280">Vuelta</td><td style="padding:8px 0;font-weight:600">${b.returnDate || ''} ${b.returnTime || ''}</td></tr>` : ''}
+
+    <h3 style="color:#1a56db;margin-top:0;border-bottom:1px solid #eee;padding-bottom:8px;font-size:15px">Detalles del Viaje</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:6px 0;color:#6b7280;width:35%">Tipo de viaje</td><td style="padding:6px 0;font-weight:600">${idaVuelta ? 'Ida y vuelta' : 'Solo ida'}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Origen</td><td style="padding:6px 0;font-weight:600">${b.origin || ''}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Destino</td><td style="padding:6px 0;font-weight:600">${b.destination || ''}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Naviera</td><td style="padding:6px 0;font-weight:600">${b.naviera || ''}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Fecha de salida</td><td style="padding:6px 0;font-weight:600">${b.departureDate || ''}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Hora de salida</td><td style="padding:6px 0;font-weight:600">${b.departureTime || ''}</td></tr>
+      ${idaVuelta ? `
+      <tr><td style="padding:6px 0;color:#6b7280">Fecha de vuelta</td><td style="padding:6px 0;font-weight:600">${b.returnDate || ''}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Hora de vuelta</td><td style="padding:6px 0;font-weight:600">${b.returnTime || ''}</td></tr>` : ''}
+      <tr><td style="padding:6px 0;color:#6b7280">Estado</td><td style="padding:6px 0;font-weight:600">${b.estado || 'Pendiente'}</td></tr>
     </table>
 
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Pasajeros (${(b.passengers || []).length})</h3>
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px;font-size:15px">Pasajeros (${(b.passengers || []).length})</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${passengersHtml}
     </table>
 
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Vehículos (${vehiclesList.length})</h3>
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px;font-size:15px">Vehículos (${vehiclesList.length})</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${vehiclesHtml}
     </table>
 
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;color:#9ca3af;font-size:12px;text-align:center">
-      Reserva creada el ${new Date().toISOString().slice(0, 10)} · Estado: ${b.estado || 'Pendiente'}<br>
+      Reserva creada el ${new Date().toISOString().slice(0, 10)}<br>
       ALSA — Sistema de Gestión de Agencias
     </div>
   </div>
