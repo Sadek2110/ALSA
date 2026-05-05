@@ -1062,7 +1062,10 @@ function showWizStep3() {
         ${wz.passengers.map((p, idx) => `
           <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:white;border:1px solid var(--gray-200);border-radius:var(--radius)">
             <div>
-              <div style="font-weight:600;font-size:0.875rem">${esc(p.nombre)} ${esc(p.apellido1)}</div>
+              <div style="font-weight:600;font-size:0.875rem">
+                ${esc(p.nombre)} ${esc(p.apellido1)}
+                ${p.isDriver ? '<span style="display:inline-block;margin-left:6px;padding:1px 8px;background:#dbeafe;color:#1d4ed8;border-radius:10px;font-size:0.65rem;font-weight:700;vertical-align:middle">🚗 Conductor</span>' : ''}
+              </div>
               <div style="font-size:0.75rem;color:var(--gray-500)">${esc(p.tipoDoc)}: ${esc(p.numDoc)} · ${esc(p.email)}</div>
             </div>
             <button class="btn-icon-danger" onclick="removeWizPassenger(${idx})" title="Eliminar pasajero">
@@ -1184,6 +1187,16 @@ function showWizStep3() {
           </label>
         </div>
 
+        ${wz.withVehicle ? `
+        <div style="margin:0 0 20px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius)">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
+            <input type="checkbox" id="pax-conductor" class="pax-is-driver" style="width:18px;height:18px;accent-color:var(--primary)"
+              onchange="if(this.checked){document.querySelectorAll('.pax-is-driver').forEach(c=>c.checked=false);this.checked=true}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Marcar como conductor del vehículo
+          </label>
+        </div>` : ''}
+
         <div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--gray-100)">
           <button type="submit" class="btn btn-secondary" style="width:auto;padding:11px 24px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1252,8 +1265,14 @@ async function addPassengerAction(e) {
   const pax = {
     nombre, apellido1: ape1, apellido2: val('pax-ape2').trim(),
     email, telefono: `${val('pax-pre')} ${tel}`,
-    fnac, nacionalidad: nac, tipoDoc: tipdoc, numDoc: numdoc, expDoc: expdoc
+    fnac, nacionalidad: nac, tipoDoc: tipdoc, numDoc: numdoc, expDoc: expdoc,
+    isDriver: $('pax-conductor')?.checked || false,
   };
+
+  // Si se marcó como conductor, quitar conductor de los demás pasajeros
+  if (pax.isDriver) {
+    state.bookingWizard.passengers.forEach(p => p.isDriver = false);
+  }
 
   // Si se marcó "guardar como frecuente", hacerlo ahora
   if ($('pax-frecuente')?.checked) {
@@ -1271,6 +1290,10 @@ function finalizePassengerStep() {
   const wz = state.bookingWizard;
   if (!wz || wz.passengers.length === 0) {
     showToast('warning','Sin pasajeros','Añade al menos un pasajero antes de continuar.');
+    return;
+  }
+  if (wz.withVehicle && !wz.passengers.some(p => p.isDriver)) {
+    showToast('warning','Conductor requerido','Debes marcar al menos un pasajero como conductor del vehículo.');
     return;
   }
   if (wz.withVehicle) showWizStep4();
@@ -1699,7 +1722,7 @@ function showWizStep5() {
         </div>
         ${wz.passengers.map((p, idx) => `
           <div style="${idx > 0 ? 'margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100)' : ''}">
-            <div style="font-weight:600;font-size:0.875rem;margin-bottom:6px">${idx + 1}. ${esc(p.nombre)} ${esc(p.apellido1)}</div>
+            <div style="font-weight:600;font-size:0.875rem;margin-bottom:6px">${idx + 1}. ${esc(p.nombre)} ${esc(p.apellido1)}${p.isDriver ? ' <span style="display:inline-block;padding:1px 8px;background:#dbeafe;color:#1d4ed8;border-radius:10px;font-size:0.65rem;font-weight:700">🚗 Conductor</span>' : ''}</div>
             <div class="wiz-summary-grid">
               <div class="wiz-summary-row"><span class="wiz-sum-label">Documento</span><span class="wiz-sum-val">${esc(p.tipoDoc)} ${esc(p.numDoc)}</span></div>
               <div class="wiz-summary-row"><span class="wiz-sum-label">Email</span><span class="wiz-sum-val">${esc(p.email)}</span></div>
@@ -2855,6 +2878,7 @@ function getNavieraLogo(name, size = 'lg') {
     { match: ['frs'],                                   img: 'img/Logo_FRS.svg.png'  },
     { match: ['armas'],                                 img: 'img/Armas_logo.png'    },
     { match: ['gnv'],                                   img: 'img/GNV_logo.svg.png'  },
+    { match: ['fred','olsen'],                          img: 'img/logo_fred_oslen.png' },
   ];
   const imgFound = imgBrands.find(b => b.match.some(m => n.includes(m)));
   if (imgFound) {
@@ -3030,8 +3054,8 @@ async function editMember(id) {
       <form id="edit-member-form" onsubmit="submitEditMember(event, ${id})" novalidate>
         <div class="form-grid">
           <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-input" id="em-nombre" value="${esc(m.nombre)}"></div>
-          <div class="form-group"><label class="form-label">Apellido 1</label><input type="text" class="form-input" id="em-ape1" value="${esc(m.apellido1)}"></div>
-          <div class="form-group"><label class="form-label">Apellido 2</label><input type="text" class="form-input" id="em-ape2" value="${esc(m.apellido2||'')}"></div>
+          <div class="form-group"><label class="form-label">Apellido 1</label><input type="text" class="form-input" id="em-ape1" value="${esc(m.apellido1 || (m.apellido ? m.apellido.split(' ')[0] : ''))}"></div>
+          <div class="form-group"><label class="form-label">Apellido 2</label><input type="text" class="form-input" id="em-ape2" value="${esc(m.apellido2 || (m.apellido ? m.apellido.split(' ').slice(1).join(' ') : ''))}"></div>
           <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="em-email" value="${esc(m.email||'')}"></div>
           <div class="form-group"><label class="form-label">Teléfono</label><input type="text" class="form-input" id="em-tel" value="${esc(m.telefono||'')}"></div>
           <div class="form-group"><label class="form-label">Nacionalidad</label><input type="text" class="form-input" id="em-nac" value="${esc(m.nacionalidad||'')}"></div>
@@ -3052,12 +3076,17 @@ function submitEditMember(e, id) {
   e.preventDefault();
   const idx = state.members.findIndex(m => m.id === id);
   if (idx >= 0) {
+    const ape1 = val('em-ape1');
+    const ape2 = val('em-ape2');
     state.members[idx] = {
       ...state.members[idx],
       nombre: val('em-nombre'),
-      apellido: val('em-ape1'),
+      apellido: `${ape1}${ape2 ? ' ' + ape2 : ''}`,
+      apellido1: ape1,
+      apellido2: ape2,
       email: val('em-email'),
       telefono: val('em-tel'),
+      nacionalidad: val('em-nac'),
     };
   }
   closeBookingModal();

@@ -1,47 +1,15 @@
-# Cambios necesarios de las llamadas a la API
+# Correcciones de la pagina
 
-A la hora de hacer una reserva hay que llamar a tres endpoints:
+Hay algunas cosas ha corregir:
 
-- https://api.b2b.kikoto.com/v1/routes → Para sacar a todas las rutas que hay disponibles y esta devuelve un body de este tipo:
-    
-    ```json
-    
-    {
-    "id": 381,
-    "departure_port_id": 122,
-    "destination_port_id": 23,
-    "name": "Agaete - Santa Cruz de Tenerife",
-    "updated_at": 1772620577
-    }
-    ```
-    
-- [https://api.b2b.kikoto.com/v1/routes/<id_ruta>/shipping-companies](https://api.b2b.kikoto.com/v1/routes/1017/shipping-companies) → Para obtener las navieras que ejecutan la ruta y devuelven algo asi:
-    
-    ```json
-    
-    {
-    "id": 11,
-    "name": "Blue Star Ferries",
-    "code": "blue",
-    "services": 
-    	{
-    	"passengers": true,
-    	"vehicles": true,
-    	"pets": true,
-    	"check_in": true 
-    	}
-    }
-    ```
-    
-- [https://api.b2b.kikoto.com/v1/timetables?shipping-company=<id_naviera>](https://api.b2b.kikoto.com/v1/timetables) → Para obtener las salidas que realizan dicha ruta en esa fecha, este endpoint necesita un body:
-    
-    ```json
-    {
-        "departure_port_id": <id_puertoOrigen>(se saca de routes),
-        "destination_port_id": <id_puertoDestino>(se saca de routes),
-        "date": "2026-07-23"
-    }
-    ```
-    
+## Funcionalidades
 
-Estas llamadas son las unicas necesarias para poder hacer la reserva. Asegurate de que funciona y no se rompe ninguna funcionalidad del proyecto en frontend.
+- El crud de las tablas de todas las secciones no funciona, no deja editar los datos.
+- En la seccion de reservas no deja ver el resumen de las reservas, hay que dejar ver el resumen de la reserva una cez hecha cuando pulses.
+- Y hay que añadir una funcionalidad a la hora de hacer una reserva y es que si se elige un vehiculo a la hora de añadir los pasajeros hay que especificar quien es el conductor siempre porque un vehiculo tiene que tener un conductor minimo
+
+## Estilos
+
+- El estilo de los select de nacionalidad y tipo de documento tienen un estilo en el select muy feo, cambia el estilo de ambos y quita las flechas que salen al hacer focus y el estilo del desplegable.
+- Y en la carpeta de img voy a dejar la foto de la naviera fred oslen para que la utilices con esa naviera.
+- El logo de kikoto ferries es muy pequeño ponlo mas grande que se note mas

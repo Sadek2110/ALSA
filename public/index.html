@@ -210,7 +210,58 @@
     </main>
   </div>
 
+  <!-- Booking Detail Modal -->
+  <div id="booking-modal-overlay" class="modal-overlay" style="display:none" onclick="closeBookingModal(event)">
+    <div class="modal-content" id="booking-modal-body">
+    </div>
+  </div>
+
+  <!-- Set Password Page (Admin Activation) -->
+  <div id="page-set-password" style="display:none;min-height:100vh;background:var(--gray-50);align-items:center;justify-content:center;padding:24px">
+    <div class="reg-wrap">
+      <div class="reg-logo">
+        <div class="logo-combo">
+          <img src="img/logo.png" alt="Icono" class="logo-icon">
+          <img src="img/nombre_logo.png" alt="Kikoto Ferries" class="logo-nombre">
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step done">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="step-ln done"></div>
+        <div class="step current">2</div>
+        <div class="step-ln"></div>
+        <div class="step pending">3</div>
+      </div>
+      <h2 class="reg-title">Crear contraseña</h2>
+      <p class="reg-sub">Establece una contraseña segura para activar tu cuenta de administrador.</p>
+      <form id="set-pwd-form" onsubmit="handleSetPassword(event)" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="new-pwd">Contraseña <span style="color:var(--danger)">*</span></label>
+          <input type="password" id="new-pwd" class="form-input" placeholder="Mínimo 8 caracteres" oninput="updatePwStrength(this.value)">
+          <div class="pw-strength">
+            <div class="pw-bar" id="pwb1"></div>
+            <div class="pw-bar" id="pwb2"></div>
+            <div class="pw-bar" id="pwb3"></div>
+            <div class="pw-bar" id="pwb4"></div>
+          </div>
+          <span class="error-msg" id="err-new-pwd"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rep-pwd">Repetir contraseña <span style="color:var(--danger)">*</span></label>
+          <input type="password" id="rep-pwd" class="form-input" placeholder="Repite la contraseña">
+          <span class="error-msg" id="err-rep-pwd"></span>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:10px">
+          Activar cuenta
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
