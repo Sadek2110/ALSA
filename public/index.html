@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KIKOTO · Gestión de Agencias</title>
+  <title>ALSA · Rutas y Horarios</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,281 +12,95 @@
 </head>
 <body>
 
-  <!-- Toast container -->
-  <div id="toast-root"></div>
-
-  <!-- Mobile sidebar overlay -->
-  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
-
-  <!-- ===================================================
-       PAGE: LOGIN
-  ==================================================== -->
-  <div id="page-login" style="display:grid">
-
-    <!-- Left Column: Form -->
-    <div class="login-left">
-      <div class="login-form-wrap">
-        <h1 class="login-title">Iniciar sesión</h1>
-        <p class="login-subtitle">Agencias</p>
-
-        <form id="login-form" onsubmit="handleLogin(event)" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="login-email">Correo electrónico</label>
-            <input type="email" id="login-email" class="form-input" placeholder="nombre@empresa.com" autocomplete="email">
-            <span class="error-msg" id="err-email"></span>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="login-pwd">Contraseña</label>
-            <input type="password" id="login-pwd" class="form-input" placeholder="••••••••" autocomplete="current-password">
-            <span class="error-msg" id="err-pwd"></span>
-          </div>
-          <button type="submit" class="btn btn-primary">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Iniciar sesión
-          </button>
-        </form>
-
-        <a class="forgot-link" href="#" onclick="handleForgotPwd(); return false;">Recuperar contraseña</a>
-
-        <div style="margin-top:24px;padding:12px 14px;background:var(--primary-50);border:1px solid var(--primary-100);border-radius:var(--radius);font-size:0.8125rem;color:var(--gray-600)">
-          <strong style="color:var(--primary)">Demo:</strong> admin@kikoto.com / Admin123
-        </div>
+  <!-- Header -->
+  <header class="main-header" style="background:linear-gradient(135deg,#1a56db 0%,#2563eb 100%);position:static;margin-bottom:0;border-bottom:0">
+    <div class="header-left" style="justify-content:center;width:100%">
+      <div class="logo-combo">
+        <img src="img/logo.png" alt="Icono" class="logo-icon" style="filter:brightness(10)">
+        <img src="img/nombre_logo.png" alt="ALSA" class="logo-nombre" style="filter:brightness(10)">
       </div>
-
-
     </div>
+  </header>
 
-    <!-- Right Column: Illustration -->
-    <div class="login-right">
-      <div class="logo-combo login-right-logo">
-        <img src="img/logo.png" alt="Icono" class="logo-icon">
-        <img src="img/nombre_logo.png" alt="Kikoto Ferries" class="logo-nombre">
-      </div>
+  <!-- Search Section -->
+  <main style="max-width:720px;margin:0 auto;padding:32px 24px">
+    <div class="card" style="margin-bottom:24px">
+      <h2 style="font-size:1.25rem;font-weight:700;color:var(--gray-900);margin:0 0 4px">Buscar rutas y horarios</h2>
+      <p style="font-size:0.875rem;color:var(--gray-400);margin:0 0 24px">Selecciona origen, destino y fecha para consultar disponibilidad</p>
 
-      <div class="dash-illus">
-        <svg viewBox="0 0 430 350" xmlns="http://www.w3.org/2000/svg" width="100%">
-          <!-- Main panel -->
-          <rect x="16" y="22" width="398" height="310" rx="18" fill="white" fill-opacity="0.10"/>
-          <rect x="16" y="22" width="398" height="310" rx="18" fill="none" stroke="white" stroke-opacity="0.18" stroke-width="1"/>
-
-          <!-- Panel header -->
-          <rect x="16" y="22" width="398" height="46" rx="18" fill="white" fill-opacity="0.07"/>
-          <circle cx="44" cy="45" r="9" fill="white" fill-opacity="0.35"/>
-          <rect x="60" y="40" width="88" height="6" rx="3" fill="white" fill-opacity="0.4"/>
-          <rect x="356" y="36" width="44" height="17" rx="8.5" fill="white" fill-opacity="0.18"/>
-
-          <!-- Metric cards -->
-          <rect x="30" y="82" width="108" height="64" rx="11" fill="white" fill-opacity="0.14"/>
-          <rect x="42" y="93" width="52" height="5" rx="2.5" fill="white" fill-opacity="0.45"/>
-          <rect x="42" y="105" width="78" height="12" rx="6" fill="white" fill-opacity="0.65"/>
-          <rect x="42" y="124" width="42" height="5" rx="2.5" fill="#6ee7b7" fill-opacity="0.75"/>
-
-          <rect x="153" y="82" width="108" height="64" rx="11" fill="white" fill-opacity="0.14"/>
-          <rect x="165" y="93" width="52" height="5" rx="2.5" fill="white" fill-opacity="0.45"/>
-          <rect x="165" y="105" width="72" height="12" rx="6" fill="white" fill-opacity="0.65"/>
-          <rect x="165" y="124" width="42" height="5" rx="2.5" fill="#fde68a" fill-opacity="0.75"/>
-
-          <rect x="276" y="82" width="124" height="64" rx="11" fill="white" fill-opacity="0.14"/>
-          <rect x="288" y="93" width="56" height="5" rx="2.5" fill="white" fill-opacity="0.45"/>
-          <rect x="288" y="105" width="84" height="12" rx="6" fill="white" fill-opacity="0.65"/>
-          <rect x="288" y="124" width="44" height="5" rx="2.5" fill="#fca5a5" fill-opacity="0.75"/>
-
-          <!-- Bar chart -->
-          <rect x="30" y="160" width="230" height="120" rx="11" fill="white" fill-opacity="0.09"/>
-          <rect x="43" y="170" width="68" height="6" rx="3" fill="white" fill-opacity="0.45"/>
-          <!-- bars -->
-          <rect x="50"  y="218" width="20" height="48" rx="4" fill="white" fill-opacity="0.28"/>
-          <rect x="80"  y="228" width="20" height="38" rx="4" fill="white" fill-opacity="0.28"/>
-          <rect x="110" y="208" width="20" height="58" rx="4" fill="white" fill-opacity="0.5"/>
-          <rect x="140" y="220" width="20" height="46" rx="4" fill="white" fill-opacity="0.28"/>
-          <rect x="170" y="202" width="20" height="64" rx="4" fill="white" fill-opacity="0.6"/>
-          <rect x="200" y="225" width="20" height="41" rx="4" fill="white" fill-opacity="0.28"/>
-          <rect x="230" y="210" width="20" height="56" rx="4" fill="white" fill-opacity="0.38"/>
-
-          <!-- Donut chart -->
-          <rect x="278" y="160" width="122" height="120" rx="11" fill="white" fill-opacity="0.09"/>
-          <circle cx="339" cy="214" r="36" fill="none" stroke="white" stroke-opacity="0.14" stroke-width="15"/>
-          <circle cx="339" cy="214" r="36" fill="none" stroke="white" stroke-opacity="0.55" stroke-width="15" stroke-dasharray="85 141" stroke-dashoffset="-8" stroke-linecap="round"/>
-          <circle cx="339" cy="214" r="36" fill="none" stroke="#6ee7b7" stroke-opacity="0.65" stroke-width="15" stroke-dasharray="42 184" stroke-dashoffset="-94" stroke-linecap="round"/>
-          <circle cx="339" cy="214" r="36" fill="none" stroke="#fde68a" stroke-opacity="0.55" stroke-width="15" stroke-dasharray="22 204" stroke-dashoffset="-138" stroke-linecap="round"/>
-          <rect x="327" y="208" width="24" height="12" rx="6" fill="white" fill-opacity="0.65"/>
-
-          <!-- Table row -->
-          <rect x="30" y="292" width="370" height="28" rx="7" fill="white" fill-opacity="0.1"/>
-          <rect x="44" y="303" width="44" height="5" rx="2.5" fill="white" fill-opacity="0.38"/>
-          <rect x="148" y="303" width="64" height="5" rx="2.5" fill="white" fill-opacity="0.38"/>
-          <rect x="284" y="300" width="36" height="11" rx="5.5" fill="#6ee7b7" fill-opacity="0.42"/>
-          <rect x="354" y="303" width="30" height="5" rx="2.5" fill="white" fill-opacity="0.28"/>
-
-          <!-- Floating metric card -->
-          <rect x="298" y="8" width="130" height="54" rx="12" fill="white" fill-opacity="0.96" style="filter:drop-shadow(0 4px 14px rgba(0,0,0,0.18))"/>
-          <rect x="310" y="19" width="54" height="5" rx="2.5" fill="#6b7280"/>
-          <rect x="310" y="30" width="80" height="11" rx="5.5" fill="#1d4ed8"/>
-          <rect x="310" y="47" width="34" height="5" rx="2.5" fill="#10b981"/>
-
-          <!-- Floating notification -->
-          <rect x="2" y="278" width="148" height="50" rx="12" fill="white" fill-opacity="0.96" style="filter:drop-shadow(0 4px 14px rgba(0,0,0,0.18))"/>
-          <circle cx="18" cy="303" r="11" fill="#eff6ff"/>
-          <rect x="34" y="293" width="64" height="5" rx="2.5" fill="#374151"/>
-          <rect x="34" y="304" width="84" height="5" rx="2.5" fill="#9ca3af"/>
-          <rect x="34" y="315" width="52" height="5" rx="2.5" fill="#2563eb"/>
-        </svg>
-      </div>
-
-      <p class="login-tagline">Panel de gestión profesional para agencias de viaje</p>
-    </div>
-  </div>
-
-  <!-- ===================================================
-       PAGE: DASHBOARD
-  ==================================================== -->
-  <div id="page-dashboard" style="display:none">
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-logo sidebar-logo-btn" onclick="navigateTo('home')" title="Ir al Escritorio">
-        <div class="logo-combo">
-          <img src="img/logo.png" alt="Icono" class="logo-icon">
-          <img src="img/nombre_logo.png" alt="Kikoto Ferries" class="logo-nombre">
+      <div style="margin-bottom:18px">
+        <span class="form-sec-label">Tipo de trayecto</span>
+        <div class="seg-ctrl" id="home-seg">
+          <button class="seg-btn active" onclick="selectTripType('ida',this)">Ida</button>
+          <button class="seg-btn" onclick="selectTripType('idayvuelta',this)">Ida y vuelta</button>
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        <span class="nav-label">Principal</span>
-
-        <div class="nav-item active" data-section="home" onclick="navigateTo('home')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Escritorio
-        </div>
-
-        <div class="nav-item nav-item-reservar" data-section="reserva" onclick="navigateTo('reserva')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          Nueva reserva
-        </div>
-
-        <span class="nav-label">Gestión</span>
-
-        <div class="nav-item" data-section="viajes" onclick="navigateTo('viajes')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Reservas
-        </div>
-
-        <div class="nav-item" data-section="facturas" onclick="navigateTo('facturas')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Facturas
-        </div>
-
-        <div class="nav-item" data-section="miembros" onclick="navigateTo('miembros')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Miembros
-        </div>
-
-        <div class="nav-item" data-section="vehiculos" onclick="navigateTo('vehiculos')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-          Vehículos
-        </div>
-
-        <div class="nav-item" data-section="administradores" onclick="navigateTo('administradores')">
-          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Administradores
-        </div>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="user-card">
-          <div class="user-ava" id="user-ava">AP</div>
-          <div>
-            <div class="user-name" id="sidebar-uname">Admin Principal</div>
-            <div class="user-role">Administrador</div>
+      <div style="margin-bottom:18px">
+        <span class="form-sec-label">Ruta</span>
+        <div class="form-grid">
+          <div class="form-group" style="margin-bottom:0;position:relative">
+            <label class="form-label" style="font-size:0.8125rem">Puerto de origen</label>
+            <input type="text" class="form-input" id="h-origen" placeholder="Escribe para buscar..." autocomplete="off"
+              oninput="filterRoutes('origen')" onfocus="filterRoutes('origen')" onblur="setTimeout(()=>hideDropdown('drop-origen'),180)">
+            <div class="route-dropdown" id="drop-origen"></div>
+            <input type="hidden" id="h-origen-id" value="">
+            <span class="error-msg" id="e-origen"></span>
+          </div>
+          <div class="form-group" style="margin-bottom:0;position:relative">
+            <label class="form-label" style="font-size:0.8125rem">Puerto de destino</label>
+            <input type="text" class="form-input" id="h-destino" placeholder="Selecciona primero el origen..." autocomplete="off"
+              oninput="filterRoutes('destino')" onfocus="filterRoutes('destino')" onblur="setTimeout(()=>hideDropdown('drop-destino'),180)">
+            <div class="route-dropdown" id="drop-destino"></div>
+            <input type="hidden" id="h-destino-id" value="">
+            <span class="error-msg" id="e-destino"></span>
           </div>
         </div>
       </div>
-    </aside>
 
-    <!-- Header -->
-    <header class="main-header">
-      <div class="header-left">
-        <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Abrir menú">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
-        <div class="header-title" id="header-title">Panel principal</div>
-      </div>
-      <div class="header-right">
-        <button class="header-icon-btn" title="Notificaciones" onclick="showToast('info','Sin notificaciones','No tienes notificaciones pendientes.')">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </button>
-        <button class="btn-logout" onclick="handleLogout()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="main-content">
-      <div class="content-area" id="content-area">
-        <!-- Dynamic section content rendered here -->
-      </div>
-    </main>
-  </div>
-
-  <!-- ===================================================
-       PAGE: SET PASSWORD (Admin Activation Flow)
-  ==================================================== -->
-  <div id="page-set-password" style="display:none;min-height:100vh;background:var(--gray-50);align-items:center;justify-content:center;padding:24px">
-    <div class="reg-wrap">
-      <div class="reg-logo">
-        <div class="logo-combo">
-          <img src="img/logo.png" alt="Icono" class="logo-icon">
-          <img src="img/nombre_logo.png" alt="Kikoto Ferries" class="logo-nombre">
-        </div>
-      </div>
-
-      <div class="steps">
-        <div class="step done">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div class="step-ln done"></div>
-        <div class="step current">2</div>
-        <div class="step-ln"></div>
-        <div class="step pending">3</div>
-      </div>
-
-      <h2 class="reg-title">Crear contraseña</h2>
-      <p class="reg-sub">Establece una contraseña segura para activar tu cuenta de administrador.</p>
-
-      <form id="set-pwd-form" onsubmit="handleSetPassword(event)" novalidate>
-        <div class="form-group">
-          <label class="form-label" for="new-pwd">Contraseña <span style="color:var(--danger)">*</span></label>
-          <input type="password" id="new-pwd" class="form-input" placeholder="Mínimo 8 caracteres" oninput="updatePwStrength(this.value)">
-          <div class="pw-strength">
-            <div class="pw-bar" id="pwb1"></div>
-            <div class="pw-bar" id="pwb2"></div>
-            <div class="pw-bar" id="pwb3"></div>
-            <div class="pw-bar" id="pwb4"></div>
+      <div style="margin-bottom:22px">
+        <span class="form-sec-label">Fechas</span>
+        <div class="form-grid">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:0.8125rem">Fecha de ida</label>
+            <input type="date" class="form-input" id="h-fecha-ida" value="">
+            <span class="error-msg" id="e-fecha-ida"></span>
           </div>
-          <span class="error-msg" id="err-new-pwd"></span>
+          <div class="form-group" id="g-vuelta" style="margin-bottom:0;opacity:0.4;pointer-events:none">
+            <label class="form-label" style="font-size:0.8125rem">Fecha de vuelta</label>
+            <input type="date" class="form-input" id="h-fecha-vuelta" value="">
+            <span class="error-msg" id="e-fecha-vuelta"></span>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="rep-pwd">Repetir contraseña <span style="color:var(--danger)">*</span></label>
-          <input type="password" id="rep-pwd" class="form-input" placeholder="Repite la contraseña">
-          <span class="error-msg" id="err-rep-pwd"></span>
-        </div>
-        <button type="submit" class="btn btn-primary" style="margin-top:10px">
-          Activar cuenta
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-      </form>
-    </div>
-  </div>
+      </div>
 
-  <!-- Booking Detail Modal -->
-  <div id="booking-modal-overlay" class="modal-overlay" style="display:none" onclick="closeBookingModal(event)">
-    <div class="modal-content" id="booking-modal-body">
+      <button class="btn btn-primary" style="width:100%;padding:11px 32px;font-size:1rem" onclick="doSearchSailings()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Buscar disponibilidad
+      </button>
     </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+    <!-- Results -->
+    <div id="results-area"></div>
+  </main>
+
   <script src="app.js"></script>
+  <script>
+    // Set min date to today
+    document.addEventListener('DOMContentLoaded', function() {
+      var today = new Date().toISOString().split('T')[0];
+      var idaEl = document.getElementById('h-fecha-ida');
+      if (idaEl) {
+        idaEl.min = today;
+        idaEl.addEventListener('change', function() {
+          var vuelEl = document.getElementById('h-fecha-vuelta');
+          if (vuelEl && idaEl.value) {
+            vuelEl.min = idaEl.value;
+            if (vuelEl.value && vuelEl.value < idaEl.value) vuelEl.value = idaEl.value;
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>
