@@ -1868,7 +1868,7 @@ async function doFinalizeBooking(e) {
       returnDate: wz.dateVuelta || null,
       returnTime: wz.returnTime || null,
       estado: 'Pendiente',
-      vehicle: vehiclesList[0] || null,
+      vehicles: vehiclesList,
       passengers: wz.passengers,
     };
     api('POST', '/bookings/notify', notifyData).catch(err =>

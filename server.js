@@ -25,26 +25,25 @@ const mailer = nodemailer.createTransport({
 async function sendBookingEmail(booking) {
   if (!booking) return;
   const b = booking;
-  const veh = b.vehicle
-    ? `${b.vehicle.marca || ''} ${b.vehicle.modelo || ''}${b.vehicle.matricula ? ' · ' + b.vehicle.matricula : ''} — ${b.vehicle.largo || 0}m × ${b.vehicle.ancho || 0}m × ${b.vehicle.alto || 0}m`
-    : 'Sin vehículo';
-
   const idaVuelta = b.tripType === 'idayvuelta';
 
-  // Passenger list
+  // Vehicles list
+  const vehiclesList = b.vehicles || (b.vehicle ? [b.vehicle] : []);
+  const vehiclesHtml = vehiclesList.length > 0
+    ? vehiclesList.map((v, i) => `
+      <tr><td style="padding:6px 0;color:#6b7280">Vehículo ${i + 1}</td><td style="padding:6px 0;font-weight:600">${v.marca || ''} ${v.modelo || ''}${v.matricula ? ' · ' + v.matricula : ''}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Dimensiones</td><td style="padding:4px 0">${v.largo || 0}m × ${v.ancho || 0}m × ${v.alto || 0}m (L × A × H)</td></tr>
+    `).join('')
+    : '<tr><td colspan="2" style="padding:6px 0;color:#6b7280">Sin vehículo</td></tr>';
+
+  // Passenger list with all data
   const passengersHtml = (b.passengers || []).map((p, i) => `
-    <tr>
-      <td style="padding:6px 0;color:#6b7280">Pasajero ${i + 1}</td>
-      <td style="padding:6px 0;font-weight:600">${p.nombre || ''} ${p.apellido1 || ''}${p.isDriver ? ' 🚗 Conductor' : ''}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#6b7280">Documento</td>
-      <td style="padding:4px 0">${p.tipoDoc || ''} ${p.numDoc || ''}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#6b7280">Email</td>
-      <td style="padding:4px 0">${p.email || ''}</td>
-    </tr>
+    <tr><td colspan="2" style="padding:10px 0 6px;font-weight:700;font-size:14px;color:#1a56db">Pasajero ${i + 1}${p.isDriver ? ' 🚗 Conductor' : ''}</td></tr>
+    <tr><td style="padding:3px 0;color:#6b7280">Nombre completo</td><td style="padding:3px 0;font-weight:600">${p.nombre || ''} ${p.apellido1 || ''} ${p.apellido2 || ''}</td></tr>
+    <tr><td style="padding:3px 0;color:#6b7280">Documento</td><td style="padding:3px 0">${p.tipoDoc || ''} ${p.numDoc || ''}${p.expDoc ? ' · Exp: ' + p.expDoc : ''}</td></tr>
+    <tr><td style="padding:3px 0;color:#6b7280">Email</td><td style="padding:3px 0">${p.email || ''}</td></tr>
+    <tr><td style="padding:3px 0;color:#6b7280">Teléfono</td><td style="padding:3px 0">${p.telefono || ''}</td></tr>
+    <tr><td style="padding:3px 0;color:#6b7280">Nacimiento</td><td style="padding:3px 0">${p.fnac || ''} · ${p.nacionalidad || ''}</td></tr>
   `).join('');
 
   const html = `
@@ -63,13 +62,15 @@ async function sendBookingEmail(booking) {
       ${idaVuelta ? `<tr><td style="padding:8px 0;color:#6b7280">Vuelta</td><td style="padding:8px 0;font-weight:600">${b.returnDate || ''} ${b.returnTime || ''}</td></tr>` : ''}
     </table>
 
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Pasajeros</h3>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Pasajeros (${(b.passengers || []).length})</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${passengersHtml}
     </table>
 
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Vehículo</h3>
-    <p style="margin:8px 0;font-weight:600">${veh}</p>
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Vehículos (${vehiclesList.length})</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${vehiclesHtml}
+    </table>
 
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;color:#9ca3af;font-size:12px;text-align:center">
       Reserva creada el ${new Date().toISOString().slice(0, 10)} · Estado: ${b.estado || 'Pendiente'}<br>
