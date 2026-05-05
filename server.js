@@ -988,20 +988,7 @@ app.get('/api/routes', requireAuth, async (_req, res) => {
       },
     }));
 
-    // If API failed or returned nothing, fallback to demo if needed, but the instruction says "Sincronizar las rutas disponibles en tiempo real".
-    // For safety, if empty, we might keep the demo or just return empty.
-    if (mappedRoutes.length === 0 && !KIKOTO_API_TOKEN) {
-      routesCache = [
-        { id:1,  name:'Algeciras - Ceuta',         departure_port:{id:10,name:'Algeciras'},  destination_port:{id:11,name:'Ceuta'         } },
-        { id:2,  name:'Algeciras - Tánger Med',    departure_port:{id:10,name:'Algeciras'},  destination_port:{id:12,name:'Tánger Med'    } },
-        { id:3,  name:'Algeciras - Tánger Ciudad', departure_port:{id:10,name:'Algeciras'},  destination_port:{id:13,name:'Tánger Ciudad' } },
-        { id:4,  name:'Tarifa - Tánger Ciudad',    departure_port:{id:14,name:'Tarifa'   },  destination_port:{id:13,name:'Tánger Ciudad' } },
-        { id:5,  name:'Ceuta - Algeciras',         departure_port:{id:11,name:'Ceuta'    },  destination_port:{id:10,name:'Algeciras'     } },
-      ];
-    } else {
-      routesCache = mappedRoutes;
-    }
-
+    routesCache = mappedRoutes;
     routesCacheTime = Date.now();
     ok(res, routesCache);
   } catch (err) {
