@@ -28,14 +28,11 @@ const nodemailer = require('nodemailer');
 const store = require('./store');
 
 // ============================================================
-// EMAIL — nodemailer + SMTP Kikoto
+// EMAIL — nodemailer + Gmail
 // ============================================================
 const mailer = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'mail.kikoto.es',
-  port: parseInt(process.env.SMTP_PORT) || 465,
-  secure: true,
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  tls: { rejectUnauthorized: false },
+  service: 'gmail',
+  auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
 });
 
 async function sendBookingEmail(booking) {
@@ -86,8 +83,8 @@ async function sendBookingEmail(booking) {
 </div>`;
 
   await mailer.sendMail({
-    from: `"Kikoto Reservas" <${process.env.SMTP_USER || 'noreply@kikoto.es'}>`,
-    to:   process.env.NOTIFICATION_EMAIL || 'sadekjoud@gmail.com',
+    from: `"Kikoto Reservas" <${process.env.GMAIL_USER}>`,
+    to:   process.env.NOTIFICATION_EMAIL || process.env.GMAIL_USER,
     subject: `[Kikoto] Nueva reserva #${b.id} — ${b.departure_port} → ${b.destination_port}`,
     html,
   });
@@ -1039,8 +1036,8 @@ app.get('/api/test-email', requireAuth, async (_req, res) => {
   try {
     await mailer.verify();
     await mailer.sendMail({
-      from: `"Kikoto Reservas" <${process.env.SMTP_USER || 'noreply@kikoto.es'}>`,
-      to:   process.env.SMTP_USER || 'noreply@kikoto.es',
+      from: `"Kikoto Reservas" <${process.env.GMAIL_USER}>`,
+      to:   process.env.NOTIFICATION_EMAIL || process.env.GMAIL_USER,
       subject: '[Kikoto] Email de prueba',
       text: 'Conexión SMTP funcionando correctamente.',
     });
