@@ -8,10 +8,89 @@
 require('dotenv').config();
 
 const express = require('express');
-const path    = require('path');
+const nodemailer = require('nodemailer');
+const path       = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// ============================================================
+// EMAIL — nodemailer + Gmail
+// ============================================================
+const mailer = nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
+});
+
+async function sendBookingEmail(booking) {
+  if (!booking) return;
+  const b = booking;
+  const veh = b.vehicle
+    ? `${b.vehicle.marca || ''} ${b.vehicle.modelo || ''}${b.vehicle.matricula ? ' · ' + b.vehicle.matricula : ''} — ${b.vehicle.largo || 0}m × ${b.vehicle.ancho || 0}m × ${b.vehicle.alto || 0}m`
+    : 'Sin vehículo';
+  const pet = b.pet
+    ? `Sí (${b.pet.num || 1} mascota${b.pet.num > 1 ? 's' : ''}${b.pet.raza ? ' · ' + b.pet.raza : ''})`
+    : 'No';
+
+  const idaVuelta = b.tripType === 'idayvuelta';
+
+  // Passenger list
+  const passengersHtml = (b.passengers || []).map((p, i) => `
+    <tr>
+      <td style="padding:6px 0;color:#6b7280">Pasajero ${i + 1}</td>
+      <td style="padding:6px 0;font-weight:600">${p.nombre || ''} ${p.apellido1 || ''}${p.isDriver ? ' 🚗 Conductor' : ''}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#6b7280">Documento</td>
+      <td style="padding:4px 0">${p.tipoDoc || ''} ${p.numDoc || ''}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#6b7280">Email</td>
+      <td style="padding:4px 0">${p.email || ''}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#1a56db,#2563eb);padding:28px;text-align:center">
+    <h1 style="color:white;font-size:22px;margin:0">ALSA — Nueva Reserva</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">${b.origin || ''} → ${b.destination || ''}</p>
+  </div>
+  <div style="padding:24px">
+    <h3 style="color:#1a56db;margin-top:0;border-bottom:1px solid #eee;padding-bottom:8px">Detalles del Viaje</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr><td style="padding:8px 0;color:#6b7280">Tipo</td><td style="padding:8px 0;font-weight:600">${idaVuelta ? 'Ida y vuelta' : 'Ida'}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Ruta</td><td style="padding:8px 0;font-weight:600">${b.origin || ''} → ${b.destination || ''}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Naviera</td><td style="padding:8px 0;font-weight:600">${b.naviera || ''}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Salida</td><td style="padding:8px 0;font-weight:600">${b.departureDate || ''} ${b.departureTime || ''}</td></tr>
+      ${idaVuelta ? `<tr><td style="padding:8px 0;color:#6b7280">Vuelta</td><td style="padding:8px 0;font-weight:600">${b.returnDate || ''} ${b.returnTime || ''}</td></tr>` : ''}
+    </table>
+
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Pasajeros</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      ${passengersHtml}
+    </table>
+
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Vehículo</h3>
+    <p style="margin:8px 0;font-weight:600">${veh}</p>
+
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Mascota</h3>
+    <p style="margin:8px 0;font-weight:600">${pet}</p>
+
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;color:#9ca3af;font-size:12px;text-align:center">
+      Reserva creada el ${new Date().toISOString().slice(0, 10)} · Estado: ${b.estado || 'Pendiente'}<br>
+      ALSA — Sistema de Gestión de Agencias
+    </div>
+  </div>
+</div>`;
+
+  await mailer.sendMail({
+    from: `"ALSA Reservas" <${process.env.GMAIL_USER}>`,
+    to:   process.env.NOTIFICATION_EMAIL || process.env.GMAIL_USER,
+    subject: `[ALSA] Nueva reserva — ${b.origin || ''} → ${b.destination || ''} · ${b.naviera || ''} · ${b.departureDate || ''}`,
+    html,
+  });
+}
 
 // ============================================================
 // MIDDLEWARE GLOBAL
@@ -176,6 +255,24 @@ app.post('/api/timetables', async (req, res) => {
   } catch (err) {
     console.error('[TIMETABLES] Error:', err.message);
     fail(res, 'Error al obtener horarios: ' + err.message, 500);
+  }
+});
+
+// ============================================================
+// BOOKING NOTIFICATION — envía email al confirmar reserva
+// ============================================================
+app.post('/api/bookings/notify', async (req, res) => {
+  const b = req.body;
+  if (!b || !b.origin || !b.destination) {
+    return fail(res, 'Datos de reserva incompletos.');
+  }
+
+  try {
+    await sendBookingEmail(b);
+    ok(res, { message: 'Correo enviado correctamente.' });
+  } catch (err) {
+    console.error('[EMAIL] Error al enviar:', err.message);
+    fail(res, 'Error al enviar el correo: ' + err.message, 500);
   }
 });
 

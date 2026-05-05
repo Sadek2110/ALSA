@@ -1869,6 +1869,25 @@ async function doFinalizeBooking(e) {
         showToast('success','Pasajero guardado','Se ha guardado como pasajero frecuente.');
       }
     }
+
+    // Enviar notificación por correo (no bloquea la UI)
+    const notifyData = {
+      origin: wz.origin,
+      destination: wz.destination,
+      naviera: wz.selectedSailing.naviera,
+      tripType: wz.tripType,
+      departureDate: wz.dateIda,
+      departureTime: wz.selectedSailing.departureTime,
+      returnDate: wz.dateVuelta || null,
+      returnTime: wz.returnTime || null,
+      estado: 'Pendiente',
+      vehicle: vehiclesList[0] || null,
+      pet: wz.petDetails || null,
+      passengers: wz.passengers,
+    };
+    api('POST', '/bookings/notify', notifyData).catch(err =>
+      console.error('Error enviando notificación:', err.message)
+    );
   } catch (err) {
     if (confirmBtn) confirmBtn.disabled = false;
     showToast('error','Error al crear la reserva', err.message);
