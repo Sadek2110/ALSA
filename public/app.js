@@ -1788,19 +1788,25 @@ async function doFinalizeBooking(e) {
   const confirmBtn = document.querySelector('#wiz-confirm-form button[type="submit"]');
   if (confirmBtn) confirmBtn.disabled = true;
 
+  if (!wz.passengers || wz.passengers.length === 0) {
+    showToast('error','Sin pasajeros','Añade al menos un pasajero antes de confirmar.');
+    if (confirmBtn) confirmBtn.disabled = false;
+    return;
+  }
+
   try {
     // Crear reserva localmente (modo demo)
     const bookings = [];
-    passengers.forEach((pax) => {
+    wz.passengers.forEach((pax) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
       const newBooking = {
         id,
         tripType: wz.tripType,
         origin: wz.origin,
         destination: wz.destination,
-        naviera: selectedSailing.naviera,
+        naviera: wz.selectedSailing.naviera,
         departureDate: wz.dateIda,
-        departureTime: selectedSailing.departureTime,
+        departureTime: wz.selectedSailing.departureTime,
         returnDate: wz.dateVuelta || null,
         returnTime: wz.returnTime || null,
         localizador: '',
