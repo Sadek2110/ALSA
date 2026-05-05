@@ -156,18 +156,16 @@ app.post('/api/timetables', async (req, res) => {
           date,
         });
         const items = tt.data || [];
-        return items
-          .filter(t => {
-            const d = t.date || t.departure_date || (t.departure_at || '').slice(0, 10);
-            return d === date;
-          })
-          .map(t => ({
+        return items.map(t => {
+          const dt = t.departure_datetime || '';
+          return {
             naviera_id:    c.id,
             naviera:       c.name,
-            date:          t.date || t.departure_date || (t.departure_at || '').slice(0, 10) || date,
-            departureTime: t.departure_time || t.time || (t.departure_at || '').slice(11, 16) || '',
+            date:          dt.slice(0, 10) || date,
+            departureTime: dt.slice(11, 16) || '—',
             raw:           t,
-          }));
+          };
+        });
       } catch (err) {
         console.error(`[TIMETABLES] company ${c.id}:`, err.message);
         return [];
