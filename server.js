@@ -28,9 +28,6 @@ async function sendBookingEmail(booking) {
   const veh = b.vehicle
     ? `${b.vehicle.marca || ''} ${b.vehicle.modelo || ''}${b.vehicle.matricula ? ' · ' + b.vehicle.matricula : ''} — ${b.vehicle.largo || 0}m × ${b.vehicle.ancho || 0}m × ${b.vehicle.alto || 0}m`
     : 'Sin vehículo';
-  const pet = b.pet
-    ? `Sí (${b.pet.num || 1} mascota${b.pet.num > 1 ? 's' : ''}${b.pet.raza ? ' · ' + b.pet.raza : ''})`
-    : 'No';
 
   const idaVuelta = b.tripType === 'idayvuelta';
 
@@ -73,9 +70,6 @@ async function sendBookingEmail(booking) {
 
     <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Vehículo</h3>
     <p style="margin:8px 0;font-weight:600">${veh}</p>
-
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px">Mascota</h3>
-    <p style="margin:8px 0;font-weight:600">${pet}</p>
 
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;color:#9ca3af;font-size:12px;text-align:center">
       Reserva creada el ${new Date().toISOString().slice(0, 10)} · Estado: ${b.estado || 'Pendiente'}<br>

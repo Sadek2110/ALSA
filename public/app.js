@@ -919,8 +919,7 @@ async function doSearchSailings() {
     tripType, origin: origenNm, originId: origenId,
     destination: destinoNm, destinationId: destinoId,
     dateIda: fechaIda, dateVuelta: fechaVuelta || null,
-    withVehicle, withPet: false,
-    selectedSailing: null, passengers: [], vehicle: null, petDetails: [], saveAsFrequent: false,
+    withVehicle, selectedSailing: null, passengers: [], vehicle: null, saveAsFrequent: false,
     searchParams,
   };
 
@@ -1759,16 +1758,6 @@ function showWizStep5() {
         </div>
       </div>` : '')}
 
-      ${wz.petDetails ? `
-      <!-- Bloque: Mascota -->
-      <div class="wiz-summary-block">
-        <div class="wiz-summary-block-title">🐾 Mascota</div>
-        <div class="wiz-summary-grid">
-          <div class="wiz-summary-row"><span class="wiz-sum-label">Número</span><span class="wiz-sum-val">${wz.petDetails.num}</span></div>
-          ${wz.petDetails.raza ? `<div class="wiz-summary-row"><span class="wiz-sum-label">Tipo / Raza</span><span class="wiz-sum-val">${esc(wz.petDetails.raza)}</span></div>` : ''}
-        </div>
-      </div>` : ''}
-
       <form id="wiz-confirm-form" onsubmit="doFinalizeBooking(event)" novalidate>
         <div style="margin:16px 0 20px${state.frequentPassengers.find(p => p.numDoc === pax.numDoc) ? ';display:none' : ''}" id="guardar-frecuente-wrap">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
@@ -1805,7 +1794,6 @@ async function doFinalizeBooking(e) {
     vehicles:      vehiclesList,
     vehicleData:   vehiclesList[0] || null,
     vehicleCount:  vehiclesList.length,
-    petDetails:    wz.petDetails || null,
   };
 
   const confirmBtn = document.querySelector('#wiz-confirm-form button[type="submit"]');
@@ -1851,7 +1839,6 @@ async function doFinalizeBooking(e) {
         vehAncho: vehiclesList[0] ? (parseFloat(vehiclesList[0].ancho) || 0) : 0,
         vehLargo: vehiclesList[0] ? (parseFloat(vehiclesList[0].largo) || 0) : 0,
         vehAlto: vehiclesList[0] ? (parseFloat(vehiclesList[0].alto) || 0) : 0,
-        withPet: wz.withPet ? 1 : 0,
         vehicleCount: vehiclesList.length,
         passengerData: pax,
         vehicleData: vehiclesList[0] || null,
@@ -1882,7 +1869,6 @@ async function doFinalizeBooking(e) {
       returnTime: wz.returnTime || null,
       estado: 'Pendiente',
       vehicle: vehiclesList[0] || null,
-      pet: wz.petDetails || null,
       passengers: wz.passengers,
     };
     api('POST', '/bookings/notify', notifyData).catch(err =>
@@ -3027,14 +3013,6 @@ function openBookingModal(bookingId) {
         </div>
       </div>` : ''}
 
-      ${b.withPet ? `
-      <div class="modal-section">
-        <div class="modal-section-title">🐾 Mascota</div>
-        <div class="modal-detail-grid">
-          <div class="modal-detail-item"><div class="modal-detail-label">Cantidad</div><div class="modal-detail-value">${b.petNum||1}</div></div>
-          ${b.petRaza ? `<div class="modal-detail-item"><div class="modal-detail-label">Raza</div><div class="modal-detail-value">${esc(b.petRaza)}</div></div>` : ''}
-        </div>
-      </div>` : ''}
     </div>`;
 
   overlay.style.display = 'flex';

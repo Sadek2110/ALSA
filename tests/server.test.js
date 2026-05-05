@@ -111,7 +111,6 @@ describe('API Integration Tests', () => {
           { nombre: 'Test', apellido1: 'User', email: 'test@user.com', tipoDoc: 'DNI', numDoc: '12345678A', isDriver: true },
         ],
         vehicle: { marca: 'Mercedes', modelo: 'Sprinter', matricula: '1234ABC', largo: 5.9, ancho: 2.1, alto: 2.8 },
-        pet: null,
       });
       expect(res.status).toBe(200);
       expect(res.body.message).toContain('Correo enviado');
