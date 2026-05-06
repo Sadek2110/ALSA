@@ -1,17 +1,17 @@
 /* ============================================================
-   KIKOTO - Agency Management Platform
+   ALSA - Agency Management Platform
    app.js - Frontend Logic (consume la API Node.js en /api)
    ============================================================ */
 
 'use strict';
 
 // ============================================================
-// API BASE — apunta al backend PHP
+// API BASE — apunta al backend Node.js
 // ============================================================
 const API_BASE = '/api';
 
 /**
- * Llamada genérica a la API PHP.
+ * Llamada genérica a la API Node.js.
  * Lanza un Error con el mensaje del servidor si la respuesta no es ok.
  */
 async function api(method, path, data = null, isFormData = false) {
@@ -33,10 +33,8 @@ async function api(method, path, data = null, isFormData = false) {
   return json;
 }
 
-const NOTIFICATION_EMAIL = 'admin@kikoto.com';
-
 // ============================================================
-// APPLICATION STATE  (datos que se cargan desde el backend PHP)
+// APPLICATION STATE  (datos que se cargan desde el backend Node.js)
 // ============================================================
 const state = {
   currentSection: 'home',
@@ -65,70 +63,28 @@ const state = {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Modo demo: siempre mostrar login
   showPage('login');
 });
 
 /**
  * Carga todos los datos desde el backend Node.js.
- * Si el backend no está disponible, usa datos demo locales.
  */
 async function loadStateFromServer() {
   try {
     const data = await api('GET', '/data');
-    if (data.bookings && data.bookings.length >= 0) {
-      state.bookings = data.bookings || [];
-      state.members = data.members || [];
-      state.vehicles = data.vehicles || [];
-      state.invoices = data.invoices || [];
-      state.admins = data.admins || [];
-      state.frequentPassengers = data.frequentPassengers || [];
-      console.log('[DATA] Loaded from server:', data.bookings.length, 'bookings,', data.members.length, 'members');
-      return;
-    }
+    state.bookings = data.bookings || [];
+    state.members = data.members || [];
+    state.vehicles = data.vehicles || [];
+    state.invoices = data.invoices || [];
+    state.admins = data.admins || [];
+    state.frequentPassengers = data.frequentPassengers || [];
+    console.log('[DATA] Loaded from server:', data.bookings.length, 'bookings,', data.members.length, 'members');
   } catch (err) {
-    console.warn('[DATA] Server unavailable, using demo data:', err.message);
+    console.error('[DATA] Error loading data:', err.message);
+    showToast('error', 'Error', 'No se pudieron cargar los datos del servidor.');
   }
-  _loadDemoData();
 }
 
-function _loadDemoData() {
-  state.bookings = [
-    { id:1, tripType:'ida', origin:'Algeciras', destination:'Ceuta', naviera:'Balearia',
-      departureDate:'2024-03-15', departureTime:'08:00', returnDate:null, returnTime:null,
-      localizador:'', estado:'Pendiente', passengerName:'María García',
-      vehiclePlate:'Mercedes Sprinter', email:'maria@ejemplo.com', createdAt:'2024-03-10' },
-    { id:2, tripType:'idayvuelta', origin:'Barcelona', destination:'Palma', naviera:'Trasmediterránea',
-      departureDate:'2024-04-01', departureTime:'10:30', returnDate:'2024-04-08', returnTime:'09:00',
-      localizador:'ALG1234', estado:'Activo', passengerName:'Carlos Martínez',
-      vehiclePlate:'Volkswagen Crafter', email:'carlos@ejemplo.com', createdAt:'2024-03-20' },
-  ];
-  state.members = [
-    { id:1, nombre:'María',  apellido:'García López', apellido1:'García', apellido2:'López', dni:'12345678A', telefono:'+34 612 345 678', fechaNacimiento:'1985-06-15', fechaExpiracion:'2026-06-15' },
-    { id:2, nombre:'Carlos', apellido:'Martínez',     apellido1:'Martínez', dni:'87654321B', telefono:'+34 698 765 432', fechaNacimiento:'1990-03-22', fechaExpiracion:'2025-12-31' },
-    { id:3, nombre:'Ana',    apellido:'Rodríguez',    apellido1:'Rodríguez', dni:'11223344C', telefono:'+34 655 111 222', fechaNacimiento:'1978-11-08', fechaExpiracion:'2026-03-08' },
-  ];
-  state.vehicles = [
-    { id:1, marca:'Mercedes',  modelo:'Sprinter', matricula:'1234ABC', ancho:2.10, largo:5.90, alto:2.80 },
-    { id:2, marca:'Volkswagen',modelo:'Crafter',  matricula:'5678DEF', ancho:2.05, largo:5.40, alto:2.60 },
-    { id:3, marca:'Ford',      modelo:'Transit',  matricula:'9012GHI', ancho:2.00, largo:5.50, alto:2.55 },
-    { id:4, marca:'Renault',   modelo:'Master',   matricula:'',        ancho:1.99, largo:5.05, alto:2.48 },
-  ];
-  state.invoices = [
-    { id:1, numero:'FAC-2024-001', fecha:'2024-01-15', importe:1250.00, estado:'Pagada',   archivo:'factura_001.pdf' },
-    { id:2, numero:'FAC-2024-002', fecha:'2024-02-08', importe: 875.50, estado:'Pendiente',archivo:'factura_002.pdf' },
-    { id:3, numero:'FAC-2024-003', fecha:'2024-02-28', importe:3400.00, estado:'Pagada',   archivo:'factura_003.pdf' },
-    { id:4, numero:'FAC-2024-004', fecha:'2024-03-10', importe: 620.00, estado:'Anulada',  archivo:null },
-    { id:5, numero:'FAC-2024-005', fecha:'2024-03-22', importe:1890.75, estado:'Pendiente',archivo:'factura_005.pdf' },
-  ];
-  state.admins = [
-    { id:1, nombre:'Admin Principal', email:'admin@kikoto.com', usuario:'admin',     activo:true,  fecha:'2024-01-10', acciones:'Acceso completo' },
-    { id:2, nombre:'Laura Sánchez',   email:'laura@kikoto.com', usuario:'laura.s',   activo:true,  fecha:'2024-02-14', acciones:'Gestión de reservas' },
-    { id:3, nombre:'Roberto Pérez',   email:'rob@kikoto.com',   usuario:'roberto.p', activo:false, fecha:'2024-03-01', acciones:'Sin actividad reciente' },
-  ];
-}
-
-function saveToStorage() { /* datos gestionados por el backend */ }
 
 // ============================================================
 // PAGE MANAGEMENT
@@ -168,17 +124,20 @@ async function handleLogin(e) {
   if (btn) { btn.disabled = true; btn.textContent = 'Iniciando sesión…'; }
 
   try {
-    // Modo demo: solo se permite acceso con credenciales demo
-    if (email.toLowerCase() === 'admin@kikoto.com' && pwd === 'Admin123') {
-      state.currentUser = { email: 'admin@kikoto.com', name: 'Admin Principal', initials: 'AP' };
-      $('sidebar-uname').textContent = 'Admin Principal';
-      $('user-ava').textContent       = 'AP';
+    const result = await api('POST', '/auth/login', { email, password: pwd });
+    if (result.user) {
+      state.currentUser = result.user;
+      $('sidebar-uname').textContent = result.user.nombre || result.user.name || '';
+      $('user-ava').textContent = (result.user.nombre || result.user.name || 'U').slice(0,2).toUpperCase();
       showPage('dashboard');
       navigateTo('home');
       loadStateFromServer();
       showToast('success','Bienvenido','Has iniciado sesión correctamente.');
       return;
     }
+    fieldErr('err-pwd','login-pwd','Credenciales incorrectas. Verifica los datos.');
+    showToast('error','Acceso denegado', 'Usuario o contraseña incorrectos.');
+  } catch (err) {
     fieldErr('err-pwd','login-pwd','Credenciales incorrectas. Verifica los datos.');
     showToast('error','Acceso denegado', 'Usuario o contraseña incorrectos.');
   } finally {
@@ -774,42 +733,12 @@ function showWizStep1() {
 async function loadRoutes() {
   try {
     const data = await api('GET', '/routes');
-    // API may return array directly or wrapped
     const routes = Array.isArray(data) ? data : (data.data || data.routes || []);
     state.routes = routes;
   } catch(err) {
-    // CORS or network error: use demo routes
-    state.routes = [
-      // Estrecho / Norte de África
-      { id:1,  name:'Algeciras - Ceuta',         departure_port:{ id:10, name:'Algeciras'  }, destination_port:{ id:11, name:'Ceuta'        } },
-      { id:2,  name:'Algeciras - Tánger Med',    departure_port:{ id:10, name:'Algeciras'  }, destination_port:{ id:12, name:'Tánger Med'   } },
-      { id:3,  name:'Algeciras - Tánger Ciudad', departure_port:{ id:10, name:'Algeciras'  }, destination_port:{ id:13, name:'Tánger Ciudad'} },
-      { id:4,  name:'Tarifa - Tánger Ciudad',    departure_port:{ id:14, name:'Tarifa'     }, destination_port:{ id:13, name:'Tánger Ciudad'} },
-      { id:5,  name:'Ceuta - Algeciras',         departure_port:{ id:11, name:'Ceuta'      }, destination_port:{ id:10, name:'Algeciras'    } },
-      { id:6,  name:'Málaga - Melilla',          departure_port:{ id:30, name:'Málaga'     }, destination_port:{ id:31, name:'Melilla'      } },
-      { id:7,  name:'Almería - Melilla',         departure_port:{ id:32, name:'Almería'    }, destination_port:{ id:31, name:'Melilla'      } },
-      { id:8,  name:'Almería - Nador',           departure_port:{ id:32, name:'Almería'    }, destination_port:{ id:33, name:'Nador'        } },
-      { id:9,  name:'Almería - Ghazaouet',       departure_port:{ id:32, name:'Almería'    }, destination_port:{ id:34, name:'Ghazaouet'   } },
-      { id:10, name:'Motril - Melilla',          departure_port:{ id:35, name:'Motril'     }, destination_port:{ id:31, name:'Melilla'      } },
-      { id:11, name:'Cartagena - Orán',          departure_port:{ id:36, name:'Cartagena'  }, destination_port:{ id:37, name:'Orán'         } },
-      // Baleares
-      { id:12, name:'Barcelona - Palma',         departure_port:{ id:20, name:'Barcelona'  }, destination_port:{ id:21, name:'Palma'        } },
-      { id:13, name:'Barcelona - Ibiza',         departure_port:{ id:20, name:'Barcelona'  }, destination_port:{ id:23, name:'Ibiza'        } },
-      { id:14, name:'Barcelona - Mahón',         departure_port:{ id:20, name:'Barcelona'  }, destination_port:{ id:24, name:'Mahón'        } },
-      { id:15, name:'Valencia - Palma',          departure_port:{ id:22, name:'Valencia'   }, destination_port:{ id:21, name:'Palma'        } },
-      { id:16, name:'Valencia - Ibiza',          departure_port:{ id:22, name:'Valencia'   }, destination_port:{ id:23, name:'Ibiza'        } },
-      { id:17, name:'Valencia - Mahón',          departure_port:{ id:22, name:'Valencia'   }, destination_port:{ id:24, name:'Mahón'        } },
-      { id:18, name:'Denia - Ibiza',             departure_port:{ id:25, name:'Denia'      }, destination_port:{ id:23, name:'Ibiza'        } },
-      { id:19, name:'Denia - Formentera',        departure_port:{ id:25, name:'Denia'      }, destination_port:{ id:26, name:'Formentera'   } },
-      { id:20, name:'Palma - Ibiza',             departure_port:{ id:21, name:'Palma'      }, destination_port:{ id:23, name:'Ibiza'        } },
-      { id:21, name:'Ibiza - Formentera',        departure_port:{ id:23, name:'Ibiza'      }, destination_port:{ id:26, name:'Formentera'   } },
-      // Mediterráneo / Italia
-      { id:22, name:'Barcelona - Génova',        departure_port:{ id:20, name:'Barcelona'  }, destination_port:{ id:40, name:'Génova'       } },
-      { id:23, name:'Barcelona - Civitavecchia', departure_port:{ id:20, name:'Barcelona'  }, destination_port:{ id:41, name:'Civitavecchia'} },
-      { id:24, name:'Barcelona - Palermo',       departure_port:{ id:20, name:'Barcelona'  }, destination_port:{ id:42, name:'Palermo'      } },
-      { id:25, name:'Valencia - Génova',         departure_port:{ id:22, name:'Valencia'   }, destination_port:{ id:40, name:'Génova'       } },
-    ];
-    console.warn('Routes API error (using demo data):', err.message);
+    console.error('[ROUTES] Error loading routes:', err.message);
+    state.routes = [];
+    showToast('error', 'Error', 'No se pudieron cargar las rutas.');
   }
 }
 
@@ -1226,7 +1155,6 @@ function showWizStep2() {
 }
 
 function mergeResults(sailings, timetables, date) {
-  // Try to combine real API data; fallback to demo if empty
   const results = [];
 
   // If sailings have data
@@ -1243,14 +1171,20 @@ function mergeResults(sailings, timetables, date) {
     return results;
   }
 
-  // Fallback demo data
-  return [
-    { naviera:'Balearia',          departureDate: date, departureTime:'07:30', raw:{} },
-    { naviera:'Trasmediterránea',  departureDate: date, departureTime:'10:00', raw:{} },
-    { naviera:'FRS',               departureDate: date, departureTime:'12:15', raw:{} },
-    { naviera:'Armas Trasatlántica', departureDate: date, departureTime:'14:45', raw:{} },
-    { naviera:'GNV',               departureDate: date, departureTime:'17:30', raw:{} },
-  ];
+  // If timetables have data but no sailings
+  if (timetables.length > 0) {
+    timetables.forEach(t => {
+      results.push({
+        naviera:       t.naviera || t.company_name || 'Naviera',
+        departureDate: t.date || date,
+        departureTime: t.departureTime || t.departure_time || '—',
+        raw: t
+      });
+    });
+    return results;
+  }
+
+  return [];
 }
 
 // ── Paso 2: Disponibilidad ────────────────────────────────────

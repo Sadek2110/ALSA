@@ -401,6 +401,30 @@ app.post('/api/timetables', async (req, res) => {
 const db = require('./db');
 
 // ============================================================
+// AUTH
+// ============================================================
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return fail(res, 'Email y contraseña son obligatorios.');
+
+    const bcrypt = require('bcryptjs');
+    const { rows } = await db.query('SELECT * FROM users WHERE email = $1 AND is_active = TRUE', [email]);
+
+    if (rows.length === 0) return fail(res, 'Credenciales incorrectas.', 401);
+
+    const user = rows[0];
+    if (!bcrypt.compareSync(password, user.password_hash)) return fail(res, 'Credenciales incorrectas.', 401);
+
+    const { password_hash, ...safeUser } = user;
+    ok(res, { user: safeUser });
+  } catch (err) {
+    console.error('[AUTH] Login error:', err.message);
+    fail(res, 'Error interno de autenticación.', 500);
+  }
+});
+
+// ============================================================
 // BOOKINGS CRUD
 // ============================================================
 // BOOKING NOTIFICATION — envía email al confirmar reserva

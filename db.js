@@ -154,46 +154,17 @@ async function init() {
 
   const { rows } = await query('SELECT COUNT(*) as cnt FROM users');
   if (parseInt(rows[0].cnt, 10) === 0) {
-    console.log('[DB] Seeding initial data...');
+    console.log('[DB] Seeding initial admin user...');
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('Admin123', 10);
 
     await query('INSERT INTO users (email, password_hash, nombre, role) VALUES ($1, $2, $3, $4)',
-      ['admin@kikoto.com', hash, 'Admin Principal', 'super_admin']);
+      ['admin@alsa.com', hash, 'Admin Principal', 'super_admin']);
 
     await query('INSERT INTO administrators (nombre, email, usuario, activo, fecha, acciones) VALUES ($1,$2,$3,$4,$5,$6)',
-      ['Admin Principal', 'admin@kikoto.com', 'admin', true, '2024-01-10', 'Acceso completo']);
+      ['Admin Principal', 'admin@alsa.com', 'admin', true, new Date().toISOString().slice(0,10), 'Acceso completo']);
 
-    await query("INSERT INTO members (nombre, apellido, apellido1, apellido2, dni, tipodoc, numdoc, expdoc, email, telefono, fechanacimiento, fechaexpiracion, nacionalidad) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
-      ['María', 'García López', 'García', 'López', '12345678A', 'DNI', '12345678A', '2027-06-15', 'maria@ejemplo.com', '+34 612 345 678', '1985-06-15', '2027-06-15', 'ES']);
-
-    await query("INSERT INTO members (nombre, apellido, apellido1, apellido2, dni, tipodoc, numdoc, expdoc, email, telefono, fechanacimiento, fechaexpiracion, nacionalidad) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
-      ['Carlos', 'Martínez', 'Martínez', null, '87654321B', 'DNI', '87654321B', '2025-12-31', 'carlos@ejemplo.com', '+34 698 765 432', '1990-03-22', '2025-12-31', 'ES']);
-
-    await query("INSERT INTO members (nombre, apellido, apellido1, apellido2, dni, tipodoc, numdoc, expdoc, email, telefono, fechanacimiento, fechaexpiracion, nacionalidad) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
-      ['Ana', 'Rodríguez', 'Rodríguez', null, '11223344C', 'DNI', '11223344C', '2026-03-08', 'ana@ejemplo.com', '+34 655 111 222', '1978-11-08', '2026-03-08', 'ES']);
-
-    await query("INSERT INTO vehicles (marca, modelo, matricula, ancho, largo, alto) VALUES ($1,$2,$3,$4,$5,$6)", ['Mercedes', 'Sprinter', '1234ABC', 2.10, 5.90, 2.80]);
-    await query("INSERT INTO vehicles (marca, modelo, matricula, ancho, largo, alto) VALUES ($1,$2,$3,$4,$5,$6)", ['Volkswagen', 'Crafter', '5678DEF', 2.05, 5.40, 2.60]);
-    await query("INSERT INTO vehicles (marca, modelo, matricula, ancho, largo, alto) VALUES ($1,$2,$3,$4,$5,$6)", ['Ford', 'Transit', '9012GHI', 2.00, 5.50, 2.55]);
-    await query("INSERT INTO vehicles (marca, modelo, matricula, ancho, largo, alto) VALUES ($1,$2,$3,$4,$5,$6)", ['Renault', 'Master', '', 1.99, 5.05, 2.48]);
-
-    await query("INSERT INTO frequent_passengers (nombre, apellido1, apellido2, email, telefono, fnac, nacionalidad, tipodoc, numdoc, expdoc) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-      ['María', 'García', 'López', 'maria@ejemplo.com', '+34 612 345 678', '1985-06-15', 'ES', 'DNI', '12345678A', '2027-06-15']);
-
-    await query("INSERT INTO bookings (triptype, origin, destination, naviera, departuredate, departuretime, returndate, returntime, localizador, estado, passengername, email, vehicleplate, paxnombre, paxapellido1, paxapellido2, paxemail, paxtelefono, Paxtipodoc, paxnumdoc, paxexpdoc, vehmarca, vehmodelo, vehmatricula, vehlargo, vehancho, vealto, vehiclecount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)",
-      ['ida', 'Algeciras', 'Ceuta', 'Balearia', '2024-03-15', '08:00', null, null, '', 'Pendiente', 'María García', 'maria@ejemplo.com', 'Mercedes Sprinter', 'María', 'García', '', 'maria@ejemplo.com', '+34 612345678', 'DNI', '12345678A', '2027-06-15', 'Mercedes', 'Sprinter', '1234ABC', 5.90, 2.10, 2.80, 1]);
-
-    await query("INSERT INTO bookings (triptype, origin, destination, naviera, departuredate, departuretime, returndate, returntime, localizador, estado, passengername, email, vehicleplate, paxnombre, paxapellido1, paxapellido2, paxemail, paxtelefono, Paxtipodoc, paxnumdoc, paxexpdoc, vehmarca, vehmodelo, vehmatricula, vehlargo, vehancho, vealto, vehiclecount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)",
-      ['idayvuelta', 'Barcelona', 'Palma', 'Trasmediterránea', '2024-04-01', '10:30', '2024-04-08', '09:00', 'ALG1234', 'Activo', 'Carlos Martínez', 'carlos@ejemplo.com', 'Volkswagen Crafter', 'Carlos', 'Martínez', null, 'carlos@ejemplo.com', '+34 698765432', 'DNI', '87654321B', '2025-12-31', 'Volkswagen', 'Crafter', '5678DEF', 5.40, 2.05, 2.60, 1]);
-
-    await query("INSERT INTO invoices (numero, fecha, importe, estado, archivo) VALUES ($1,$2,$3,$4,$5)", ['FAC-2024-001', '2024-01-15', 1250.00, 'Pagada', 'factura_001.pdf']);
-    await query("INSERT INTO invoices (numero, fecha, importe, estado, archivo) VALUES ($1,$2,$3,$4,$5)", ['FAC-2024-002', '2024-02-08', 875.50, 'Pendiente', 'factura_002.pdf']);
-    await query("INSERT INTO invoices (numero, fecha, importe, estado, archivo) VALUES ($1,$2,$3,$4,$5)", ['FAC-2024-003', '2024-02-28', 3400.00, 'Pagada', 'factura_003.pdf']);
-    await query("INSERT INTO invoices (numero, fecha, importe, estado, archivo) VALUES ($1,$2,$3,$4,$5)", ['FAC-2024-004', '2024-03-10', 620.00, 'Anulada', null]);
-    await query("INSERT INTO invoices (numero, fecha, importe, estado, archivo) VALUES ($1,$2,$3,$4,$5)", ['FAC-2024-005', '2024-03-22', 1890.75, 'Pendiente', 'factura_005.pdf']);
-
-    console.log('[DB] Seed data inserted.');
+    console.log('[DB] Admin user created.');
   } else {
     console.log('[DB] Data already exists, skipping seed.');
   }
