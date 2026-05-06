@@ -1189,10 +1189,9 @@ function showWizStep3() {
         ${wz.withVehicle ? `
         <div style="margin:0 0 20px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius)">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
-            <input type="checkbox" id="pax-conductor" class="pax-is-driver" style="width:18px;height:18px;accent-color:var(--primary)"
-              onchange="if(this.checked){document.querySelectorAll('.pax-is-driver').forEach(c=>c.checked=false);this.checked=true}">
+            <input type="checkbox" id="pax-conductor" class="pax-is-driver" style="width:18px;height:18px;accent-color:var(--primary)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            Marcar como conductor del vehículo
+            Marcar como conductor
           </label>
         </div>` : ''}
 
@@ -1267,11 +1266,6 @@ async function addPassengerAction(e) {
     fnac, nacionalidad: nac, tipoDoc: tipdoc, numDoc: numdoc, expDoc: expdoc,
     isDriver: $('pax-conductor')?.checked || false,
   };
-
-  // Si se marcó como conductor, quitar conductor de los demás pasajeros
-  if (pax.isDriver) {
-    state.bookingWizard.passengers.forEach(p => p.isDriver = false);
-  }
 
   // Si se marcó "guardar como frecuente", hacerlo ahora
   if ($('pax-frecuente')?.checked) {
@@ -1560,6 +1554,15 @@ function renderVehicleBlock(idx) {
         </div>
       </div>
     </div>
+
+    <div class="form-group" style="margin-top:12px">
+      <label class="form-label">Conductor <span style="color:var(--danger)">*</span></label>
+      <select id="veh-driver-${idx}" class="form-input">
+        <option value="">— Seleccionar conductor —</option>
+        ${wz.passengers.map((p, pidx) => p.isDriver ? `<option value="${pidx}" ${v.driverPassengerIndex === pidx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}</option>` : '').join('')}
+      </select>
+      <span class="error-msg" id="e-veh-driver-${idx}"></span>
+    </div>
   </div>`;
 }
 
@@ -1579,6 +1582,8 @@ function readVehicleBlock(idx) {
     v.largo     = val(`veh-lar-${idx}`) || '';
     v.alto      = val(`veh-alt-${idx}`) || '';
   }
+  const driverVal = val(`veh-driver-${idx}`);
+  v.driverPassengerIndex = driverVal !== '' ? parseInt(driverVal, 10) : undefined;
 }
 
 function persistAllVehicleBlocks() {
@@ -1637,6 +1642,12 @@ function wizStep4Submit(e) {
       if (isNaN(lar)||lar<=0) { fieldErr(`e-veh-lar-${idx}`, `veh-lar-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-lar-${idx}`, `veh-lar-${idx}`);
       if (isNaN(alt)||alt<=0) { fieldErr(`e-veh-alt-${idx}`, `veh-alt-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-alt-${idx}`, `veh-alt-${idx}`);
     }
+    if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex)) {
+      fieldErr(`e-veh-driver-${idx}`, `veh-driver-${idx}`, 'Selecciona un conductor');
+      allOk = false;
+    } else {
+      fieldOk(`e-veh-driver-${idx}`, `veh-driver-${idx}`);
+    }
   });
 
   if (!allOk) return;
@@ -1644,6 +1655,7 @@ function wizStep4Submit(e) {
   wz.vehicles = wz.vehicles.map(v => ({
     marca: v.marca, modelo: v.modelo, matricula: v.matricula || '',
     ancho: parseFloat(v.ancho), largo: parseFloat(v.largo), alto: parseFloat(v.alto),
+    driverPassengerIndex: v.driverPassengerIndex,
   }));
   wz.vehicle = wz.vehicles[0];
   wz._vehicleCount = wz.vehicles.length;
@@ -1737,14 +1749,19 @@ function showWizStep5() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
           Vehículos (${wz.vehicles.length})
         </div>
-        ${wz.vehicles.map((vh, i) => `
+        ${wz.vehicles.map((vh, i) => {
+          const driver = (typeof vh.driverPassengerIndex === 'number' && wz.passengers[vh.driverPassengerIndex])
+            ? `${wz.passengers[vh.driverPassengerIndex].nombre || ''} ${wz.passengers[vh.driverPassengerIndex].apellido1 || ''}`.trim()
+            : '';
+          return `
           <div style="${i > 0 ? 'margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100)' : ''}">
             <div style="font-weight:600;font-size:0.875rem;margin-bottom:6px">${i + 1}. ${esc(vh.marca||'')} ${esc(vh.modelo||'')}${vh.matricula ? ` · ${esc(vh.matricula)}` : ''}</div>
             <div class="wiz-summary-grid">
               <div class="wiz-summary-row"><span class="wiz-sum-label">Dimensiones</span><span class="wiz-sum-val">${vh.largo}m × ${vh.ancho}m × ${vh.alto}m (L × A × H)</span></div>
+              ${driver ? `<div class="wiz-summary-row"><span class="wiz-sum-label">Conductor</span><span class="wiz-sum-val">${esc(driver)}</span></div>` : ''}
             </div>
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>` : (veh ? `
       <!-- Bloque: Vehículo -->
       <div class="wiz-summary-block">
@@ -1755,6 +1772,7 @@ function showWizStep5() {
         <div class="wiz-summary-grid">
           <div class="wiz-summary-row"><span class="wiz-sum-label">Marca / Modelo</span><span class="wiz-sum-val">${esc(veh.marca)} ${esc(veh.modelo)}</span></div>
           <div class="wiz-summary-row"><span class="wiz-sum-label">Dimensiones</span><span class="wiz-sum-val">${veh.largo}m × ${veh.ancho}m × ${veh.alto}m (L × A × H)</span></div>
+          ${(typeof veh.driverPassengerIndex === 'number' && wz.passengers[veh.driverPassengerIndex]) ? `<div class="wiz-summary-row"><span class="wiz-sum-label">Conductor</span><span class="wiz-sum-val">${esc(wz.passengers[veh.driverPassengerIndex].nombre || '')} ${esc(wz.passengers[veh.driverPassengerIndex].apellido1 || '')}</span></div>` : ''}
         </div>
       </div>` : '')}
 
