@@ -1838,7 +1838,7 @@ async function doFinalizeBooking(e) {
   }
 
   try {
-    // Crear reserva y persistir en backend
+    const groupId = wz.passengers.length > 1 ? 'G-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5) : null;
     const bookingPromises = wz.passengers.map(async (pax) => {
       const bookingData = {
         tripType: wz.tripType,
@@ -1869,6 +1869,7 @@ async function doFinalizeBooking(e) {
         vehAncho: vehiclesList[0] ? (parseFloat(vehiclesList[0].ancho) || 0) : 0,
         vehAlto: vehiclesList[0] ? (parseFloat(vehiclesList[0].alto) || 0) : 0,
         vehicleCount: vehiclesList.length,
+        groupId: groupId,
       };
       try {
         const saved = await api('POST', '/bookings', bookingData);
@@ -2033,7 +2034,7 @@ function renderViajes() {
       ${state.bookings.length===0
         ? `<div class="empty-state"><div class="empty-txt">No hay reservas.</div></div>`
         : state.bookings.map(b=>`
-          <div class="bk-card ${b.id===newId?'bk-card-new':''}">
+          <div class="bk-card ${b.id===newId?'bk-card-new':''}" onclick="openBookingModal(${b.id})" style="cursor:pointer">
             <div class="bk-card-head">
               <div class="bk-card-route">${esc(b.origin||'')} → ${esc(b.destination||'')}</div>
               <div style="display:flex;align-items:center;gap:6px">
@@ -2064,10 +2065,11 @@ function renderViajes() {
                   placeholder="XXXXXXXX" maxlength="10"
                   oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
                   onchange="updateBookingLocalizador(${b.id},this.value)"
+                  onclick="event.stopPropagation()"
                   style="width:130px;padding:5px 8px;height:32px;font-size:0.8125rem;font-family:monospace">
               </div>
             </div>
-            <div class="bk-card-foot">
+            <div class="bk-card-foot" onclick="event.stopPropagation()">
               <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Editar
@@ -2898,6 +2900,7 @@ function closeSidebar() {
 function $(id)  { return document.getElementById(id); }
 function val(id){ const el=$(id); return el?el.value:''; }
 function esc(s) { const d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+function formatDate(d) { try { const dt=new Date(d); if(isNaN(dt)) return String(d||''); return dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e) { return String(d||''); } }
 
 function fieldErr(errId, inputId, msg) {
   const err=$(errId), inp=$(inputId);
@@ -3029,6 +3032,7 @@ function openBookingModal(bookingId) {
           <div class="modal-detail-item"><div class="modal-detail-label">Estado</div><div class="modal-detail-value"><span class="badge ${estadoBadge(b.estado)}">${esc(b.estado)}</span></div></div>
           <div class="modal-detail-item"><div class="modal-detail-label">Naviera</div><div class="modal-detail-value">${esc(b.naviera)}</div></div>
           <div class="modal-detail-item"><div class="modal-detail-label">Localizador</div><div class="modal-detail-value">${b.localizador ? `<span class="pill-code">${esc(b.localizador)}</span>` : '<span style="color:var(--gray-300)">Pendiente</span>'}</div></div>
+          ${b.createdAt ? `<div class="modal-detail-item"><div class="modal-detail-label">Fecha creación</div><div class="modal-detail-value">${formatDate(b.createdAt)}</div></div>` : ''}
         </div>
         
         <!-- Trayectos detallados -->
@@ -3055,9 +3059,12 @@ function openBookingModal(bookingId) {
         <div style="display:flex;flex-direction:column;gap:12px">
           ${group.map((p, idx) => `
             <div style="${idx > 0 ? 'padding-top:12px;border-top:1px solid var(--gray-100)' : ''}">
-              <div style="font-weight:600;font-size:0.875rem;margin-bottom:4px">${idx + 1}. ${esc(p.paxNombre)} ${esc(p.paxApellido1)}</div>
-              <div style="font-size:0.8125rem;color:var(--gray-500)">
-                ${esc(p.paxTipoDoc)}: ${esc(p.paxNumDoc)} · ${esc(p.paxEmail)}
+              <div style="font-weight:600;font-size:0.875rem;margin-bottom:4px">${idx + 1}. ${esc(p.paxNombre)} ${esc(p.paxApellido1)}${p.paxApellido2 ? ' ' + esc(p.paxApellido2) : ''}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:0.8125rem;color:var(--gray-500)">
+                ${p.paxTipoDoc || p.paxNumDoc ? `<div><span style="color:var(--gray-400)">${esc(p.paxTipoDoc || 'Doc')}:</span> ${esc(p.paxNumDoc)}</div>` : ''}
+                ${p.paxExpDoc ? `<div><span style="color:var(--gray-400)">Expiración:</span> ${esc(p.paxExpDoc)}</div>` : ''}
+                ${p.paxEmail ? `<div><span style="color:var(--gray-400)">Email:</span> ${esc(p.paxEmail)}</div>` : ''}
+                ${p.paxTelefono ? `<div><span style="color:var(--gray-400)">Teléfono:</span> ${esc(p.paxTelefono)}</div>` : ''}
               </div>
             </div>
           `).join('')}

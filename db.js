@@ -19,6 +19,19 @@ async function query(text, params) {
 
 async function init() {
   if (_ready) return;
+  console.log('[DB] Connecting to PostgreSQL...');
+  console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') : '(not set)');
+  console.log('[DB] DB_SSL:', process.env.DB_SSL);
+
+  try {
+    const testResult = await pool.query('SELECT NOW() as now');
+    console.log('[DB] Connected successfully at', testResult.rows[0].now);
+  } catch (connErr) {
+    console.error('[DB] CONNECTION FAILED:', connErr.message);
+    console.error('[DB] Check that DATABASE_URL is correct and PostgreSQL is running.');
+    throw connErr;
+  }
+
   console.log('[DB] Initializing schema...');
 
   await query(`
@@ -122,6 +135,7 @@ async function init() {
       vehancho        NUMERIC(6,2) NOT NULL DEFAULT 0,
       vealto          NUMERIC(6,2) NOT NULL DEFAULT 0,
       vehiclecount    INTEGER NOT NULL DEFAULT 1,
+      groupid         TEXT,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -200,7 +214,7 @@ const COL_MAP = {
 
 // camelCase mapping for JSON responses
 const CAMEL_MAP = {
-  bookings: { triptype:'tripType', origin:'origin', destination:'destination', naviera:'naviera', departuredate:'departureDate', departuretime:'departureTime', returndate:'returnDate', returntime:'returnTime', localizador:'localizador', estado:'estado', passengername:'passengerName', email:'email', vehicleplate:'vehiclePlate', paxnombre:'paxNombre', paxapellido1:'paxApellido1', paxapellido2:'paxApellido2', paxemail:'paxEmail', paxtelefono:'paxTelefono', Paxtipodoc:'paxTipoDoc', paxnumdoc:'paxNumDoc', paxexpdoc:'paxExpDoc', vehmarca:'vehMarca', vehmodelo:'vehModelo', vehmatricula:'vehMatricula', vehlargo:'vehLargo', vehancho:'vehAncho', vealto:'vehAlto', vehiclecount:'vehicleCount', created_at:'createdAt', updated_at:'updatedAt' },
+  bookings: { triptype:'tripType', origin:'origin', destination:'destination', naviera:'naviera', departuredate:'departureDate', departuretime:'departureTime', returndate:'returnDate', returntime:'returnTime', localizador:'localizador', estado:'estado', passengername:'passengerName', email:'email', vehicleplate:'vehiclePlate', paxnombre:'paxNombre', paxapellido1:'paxApellido1', paxapellido2:'paxApellido2', paxemail:'paxEmail', paxtelefono:'paxTelefono', Paxtipodoc:'paxTipoDoc', paxnumdoc:'paxNumDoc', paxexpdoc:'paxExpDoc', vehmarca:'vehMarca', vehmodelo:'vehModelo', vehmatricula:'vehMatricula', vehlargo:'vehLargo', vehancho:'vehAncho', vealto:'vehAlto', vehiclecount:'vehicleCount', groupid:'groupId', created_at:'createdAt', updated_at:'updatedAt' },
   members: { nombre:'nombre', apellido:'apellido', apellido1:'apellido1', apellido2:'apellido2', dni:'dni', tipodoc:'tipoDoc', numdoc:'numDoc', expdoc:'expDoc', email:'email', telefono:'telefono', fechanacimiento:'fechaNacimiento', fechaexpiracion:'fechaExpiracion', nacionalidad:'nacionalidad', created_at:'createdAt', updated_at:'updatedAt' },
   vehicles: { marca:'marca', modelo:'modelo', matricula:'matricula', ancho:'ancho', largo:'largo', alto:'alto', created_at:'createdAt', updated_at:'updatedAt' },
   invoices: { numero:'numero', fecha:'fecha', importe:'importe', estado:'estado', archivo:'archivo', created_at:'createdAt', updated_at:'updatedAt' },
@@ -220,7 +234,7 @@ function toCamel(table, row) {
 
 // ── Convert frontend camelCase → DB columns (snake_case) ──
 const DB_MAP = {
-  bookings: { tripType:'triptype', origin:'origin', destination:'destination', naviera:'naviera', departureDate:'departuredate', departureTime:'departuretime', returnDate:'returndate', returnTime:'returntime', localizador:'localizador', estado:'estado', passengerName:'passengername', email:'email', vehiclePlate:'vehicleplate', paxNombre:'paxnombre', paxApellido1:'paxapellido1', paxApellido2:'paxapellido2', paxEmail:'paxemail', paxTelefono:'paxtelefono', paxTipoDoc:'Paxtipodoc', paxNumDoc:'paxnumdoc', paxExpDoc:'paxexpdoc', vehMarca:'vehmarca', vehModelo:'vehmodelo', vehMatricula:'vehmatricula', vehLargo:'vehlargo', vehAncho:'vehancho', vehAlto:'vealto', vehicleCount:'vehiclecount' },
+  bookings: { tripType:'triptype', origin:'origin', destination:'destination', naviera:'naviera', departureDate:'departuredate', departureTime:'departuretime', returnDate:'returndate', returnTime:'returntime', localizador:'localizador', estado:'estado', passengerName:'passengername', email:'email', vehiclePlate:'vehicleplate', paxNombre:'paxnombre', paxApellido1:'paxapellido1', paxApellido2:'paxapellido2', paxEmail:'paxemail', paxTelefono:'paxtelefono', paxTipoDoc:'Paxtipodoc', paxNumDoc:'paxnumdoc', paxExpDoc:'paxexpdoc', vehMarca:'vehmarca', vehModelo:'vehmodelo', vehMatricula:'vehmatricula', vehLargo:'vehlargo', vehAncho:'vehancho', vehAlto:'vealto', vehicleCount:'vehiclecount', groupId:'groupid' },
   members: { nombre:'nombre', apellido:'apellido', apellido1:'apellido1', apellido2:'apellido2', dni:'dni', tipoDoc:'tipodoc', numDoc:'numdoc', expDoc:'expdoc', email:'email', telefono:'telefono', fechaNacimiento:'fechanacimiento', fechaExpiracion:'fechaexpiracion', nacionalidad:'nacionalidad' },
   vehicles: { marca:'marca', modelo:'modelo', matricula:'matricula', ancho:'ancho', largo:'largo', alto:'alto' },
   invoices: { numero:'numero', fecha:'fecha', importe:'importe', estado:'estado', archivo:'archivo' },
