@@ -1609,6 +1609,75 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 }
 
 /* ======================================================
+   MINI AVAILABILITY CALENDAR (step 1)
+====================================================== */
+.mini-cal {
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  max-width: 280px;
+}
+
+.mini-cal-header {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.mini-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.mini-cal-dow {
+  text-align: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  padding: 2px 0 4px;
+  letter-spacing: 0.04em;
+}
+
+.mini-cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  transition: all 0.12s ease;
+}
+
+.mini-cal-empty {
+  background: transparent;
+}
+
+.mini-cal-past {
+  color: var(--gray-200);
+  text-decoration: line-through;
+}
+
+.mini-cal-unavailable {
+  color: var(--gray-300);
+  background: var(--gray-50);
+  cursor: not-allowed;
+}
+
+.mini-cal-available {
+  color: var(--gray-900);
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  font-weight: 600;
+}
+
+/* ======================================================
    BOOKING WIZARD
 ====================================================== */
 
