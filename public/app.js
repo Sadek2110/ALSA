@@ -75,16 +75,20 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadStateFromServer() {
   try {
     const data = await api('GET', '/data');
-    state.bookings = data.bookings || [];
-    state.members = data.members || [];
-    state.vehicles = data.vehicles || [];
-    state.invoices = data.invoices || [];
-    state.admins = data.admins || [];
-    state.frequentPassengers = data.frequentPassengers || [];
+    if (data.bookings && data.bookings.length >= 0) {
+      state.bookings = data.bookings || [];
+      state.members = data.members || [];
+      state.vehicles = data.vehicles || [];
+      state.invoices = data.invoices || [];
+      state.admins = data.admins || [];
+      state.frequentPassengers = data.frequentPassengers || [];
+      console.log('[DATA] Loaded from server:', data.bookings.length, 'bookings,', data.members.length, 'members');
+      return;
+    }
   } catch (err) {
-    console.warn('No se pudo cargar datos del servidor, usando datos demo:', err.message);
-    _loadDemoData();
+    console.warn('[DATA] Server unavailable, using demo data:', err.message);
   }
+  _loadDemoData();
 }
 
 function _loadDemoData() {
@@ -168,9 +172,9 @@ async function handleLogin(e) {
       state.currentUser = { email: 'admin@kikoto.com', name: 'Admin Principal', initials: 'AP' };
       $('sidebar-uname').textContent = 'Admin Principal';
       $('user-ava').textContent       = 'AP';
-      await loadStateFromServer();
       showPage('dashboard');
       navigateTo('home');
+      loadStateFromServer();
       showToast('success','Bienvenido','Has iniciado sesión correctamente.');
       return;
     }
