@@ -69,14 +69,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Carga todos los datos desde el backend PHP y actualiza el state.
+ * Carga todos los datos desde el backend Node.js.
  * Si el backend no está disponible, usa datos demo locales.
  */
-function loadStateFromServer() {
-  _loadDemoData();
+async function loadStateFromServer() {
+  try {
+    const data = await api('GET', '/data');
+    state.bookings = data.bookings || [];
+    state.members = data.members || [];
+    state.vehicles = data.vehicles || [];
+    state.invoices = data.invoices || [];
+    state.admins = data.admins || [];
+    state.frequentPassengers = data.frequentPassengers || [];
+  } catch (err) {
+    console.warn('No se pudo cargar datos del servidor, usando datos demo:', err.message);
+    _loadDemoData();
+  }
 }
 
-/** Datos demo para cuando el backend PHP no está disponible */
 function _loadDemoData() {
   state.bookings = [
     { id:1, tripType:'ida', origin:'Algeciras', destination:'Ceuta', naviera:'Balearia',
@@ -89,15 +99,15 @@ function _loadDemoData() {
       vehiclePlate:'Volkswagen Crafter', email:'carlos@ejemplo.com', createdAt:'2024-03-20' },
   ];
   state.members = [
-    { id:1, nombre:'María',  apellido:'García López', dni:'12345678A', telefono:'+34 612 345 678', fechaNacimiento:'1985-06-15', fechaExpiracion:'2026-06-15' },
-    { id:2, nombre:'Carlos', apellido:'Martínez',     dni:'87654321B', telefono:'+34 698 765 432', fechaNacimiento:'1990-03-22', fechaExpiracion:'2025-12-31' },
-    { id:3, nombre:'Ana',    apellido:'Rodríguez',    dni:'11223344C', telefono:'+34 655 111 222', fechaNacimiento:'1978-11-08', fechaExpiracion:'2026-03-08' },
+    { id:1, nombre:'María',  apellido:'García López', apellido1:'García', apellido2:'López', dni:'12345678A', telefono:'+34 612 345 678', fechaNacimiento:'1985-06-15', fechaExpiracion:'2026-06-15' },
+    { id:2, nombre:'Carlos', apellido:'Martínez',     apellido1:'Martínez', dni:'87654321B', telefono:'+34 698 765 432', fechaNacimiento:'1990-03-22', fechaExpiracion:'2025-12-31' },
+    { id:3, nombre:'Ana',    apellido:'Rodríguez',    apellido1:'Rodríguez', dni:'11223344C', telefono:'+34 655 111 222', fechaNacimiento:'1978-11-08', fechaExpiracion:'2026-03-08' },
   ];
   state.vehicles = [
-    { id:1, marca:'Mercedes',  modelo:'Sprinter', ancho:2.10, largo:5.90, alto:2.80 },
-    { id:2, marca:'Volkswagen',modelo:'Crafter',  ancho:2.05, largo:5.40, alto:2.60 },
-    { id:3, marca:'Ford',      modelo:'Transit',  ancho:2.00, largo:5.50, alto:2.55 },
-    { id:4, marca:'Renault',   modelo:'Master',   ancho:1.99, largo:5.05, alto:2.48 },
+    { id:1, marca:'Mercedes',  modelo:'Sprinter', matricula:'1234ABC', ancho:2.10, largo:5.90, alto:2.80 },
+    { id:2, marca:'Volkswagen',modelo:'Crafter',  matricula:'5678DEF', ancho:2.05, largo:5.40, alto:2.60 },
+    { id:3, marca:'Ford',      modelo:'Transit',  matricula:'9012GHI', ancho:2.00, largo:5.50, alto:2.55 },
+    { id:4, marca:'Renault',   modelo:'Master',   matricula:'',        ancho:1.99, largo:5.05, alto:2.48 },
   ];
   state.invoices = [
     { id:1, numero:'FAC-2024-001', fecha:'2024-01-15', importe:1250.00, estado:'Pagada',   archivo:'factura_001.pdf' },
@@ -113,12 +123,7 @@ function _loadDemoData() {
   ];
 }
 
-/**
- * Compatibilidad: saveToStorage ya no escribe en localStorage;
- * los datos se persisten en el backend PHP. Se mantiene la función
- * vacía para no romper llamadas existentes en el código.
- */
-function saveToStorage() { /* datos gestionados por el backend PHP */ }
+function saveToStorage() { /* datos gestionados por el backend */ }
 
 // ============================================================
 // PAGE MANAGEMENT
@@ -163,7 +168,7 @@ async function handleLogin(e) {
       state.currentUser = { email: 'admin@kikoto.com', name: 'Admin Principal', initials: 'AP' };
       $('sidebar-uname').textContent = 'Admin Principal';
       $('user-ava').textContent       = 'AP';
-      loadStateFromServer();
+      await loadStateFromServer();
       showPage('dashboard');
       navigateTo('home');
       showToast('success','Bienvenido','Has iniciado sesión correctamente.');
@@ -1269,8 +1274,13 @@ async function addPassengerAction(e) {
 
   // Si se marcó "guardar como frecuente", hacerlo ahora
   if ($('pax-frecuente')?.checked) {
-    const newFp = { ...pax, id: Date.now() };
-    state.frequentPassengers.push(newFp);
+    const newFp = { nombre: pax.nombre, apellido1: pax.apellido1, apellido2: pax.apellido2 || '', email: pax.email, telefono: pax.telefono, fnac: pax.fnac, nacionalidad: pax.nacionalidad, tipoDoc: pax.tipoDoc, numDoc: pax.numDoc, expDoc: pax.expDoc };
+    try {
+      const saved = await api('POST', '/frequent-passengers', newFp);
+      state.frequentPassengers.push(saved);
+    } catch(e) {
+      state.frequentPassengers.push({ id: Date.now(), ...newFp });
+    }
     showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
   }
 
@@ -1824,12 +1834,9 @@ async function doFinalizeBooking(e) {
   }
 
   try {
-    // Crear reserva localmente (modo demo)
-    const bookings = [];
-    wz.passengers.forEach((pax) => {
-      const id = Date.now() + Math.floor(Math.random() * 1000);
-      const newBooking = {
-        id,
+    // Crear reserva y persistir en backend
+    const bookingPromises = wz.passengers.map(async (pax) => {
+      const bookingData = {
         tripType: wz.tripType,
         origin: wz.origin,
         destination: wz.destination,
@@ -1843,7 +1850,6 @@ async function doFinalizeBooking(e) {
         passengerName: `${pax.nombre} ${pax.apellido1}`.trim(),
         email: pax.email || '',
         vehiclePlate: vehiclesList.length > 0 ? `${vehiclesList[0].marca} ${vehiclesList[0].modelo}` : null,
-        createdAt: new Date().toISOString().slice(0, 10),
         paxNombre: pax.nombre || '',
         paxApellido1: pax.apellido1 || '',
         paxApellido2: pax.apellido2 || '',
@@ -1851,28 +1857,40 @@ async function doFinalizeBooking(e) {
         paxTelefono: pax.telefono || '',
         paxTipoDoc: pax.tipoDoc || '',
         paxNumDoc: pax.numDoc || '',
+        paxExpDoc: pax.expDoc || '',
         vehMarca: vehiclesList[0] ? vehiclesList[0].marca : '',
         vehModelo: vehiclesList[0] ? vehiclesList[0].modelo : '',
         vehMatricula: vehiclesList[0] ? (vehiclesList[0].matricula || '') : '',
-        vehAncho: vehiclesList[0] ? (parseFloat(vehiclesList[0].ancho) || 0) : 0,
         vehLargo: vehiclesList[0] ? (parseFloat(vehiclesList[0].largo) || 0) : 0,
+        vehAncho: vehiclesList[0] ? (parseFloat(vehiclesList[0].ancho) || 0) : 0,
         vehAlto: vehiclesList[0] ? (parseFloat(vehiclesList[0].alto) || 0) : 0,
         vehicleCount: vehiclesList.length,
-        passengerData: pax,
-        vehicleData: vehiclesList[0] || null,
       };
-      bookings.push(newBooking);
+      try {
+        const saved = await api('POST', '/bookings', bookingData);
+        return saved;
+      } catch(err) {
+        console.error('Error guardando reserva:', err);
+        return { id: Date.now() + Math.floor(Math.random() * 1000), ...bookingData };
+      }
     });
-    state.bookings.unshift(...bookings);
-    state.lastCreatedBookingId = bookings[0].id;
+    const savedBookings = await Promise.all(bookingPromises);
+    state.bookings.unshift(...savedBookings);
+    state.lastCreatedBookingId = savedBookings[0].id;
 
-    if ($('pax-frecuente')?.checked) {
+if ($('pax-frecuente')?.checked) {
       const pax = wz.passengers[0];
       const exists = state.frequentPassengers.find(p => p.numDoc === pax.numDoc);
       if (!exists) {
-        state.frequentPassengers.push({ ...pax, id: Date.now() });
-        showToast('success','Pasajero guardado','Se ha guardado como pasajero frecuente.');
+        try {
+          const saved = await api('POST', '/frequent-passengers', { nombre: pax.nombre, apellido1: pax.apellido1, apellido2: pax.apellido2 || '', email: pax.email, telefono: pax.telefono, fnac: pax.fnac, nacionalidad: pax.nacionalidad, tipoDoc: pax.tipoDoc, numDoc: pax.numDoc, expDoc: pax.expDoc });
+          state.frequentPassengers.push(saved);
+        } catch(e) {
+          state.frequentPassengers.push({ ...pax, id: Date.now() });
+        }
+        showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
       }
+    }
     }
 
     // Enviar notificación por correo (no bloquea la UI)
@@ -2502,7 +2520,8 @@ async function _doUpdateLocalizador(id, value) {
   b.localizador = loc || '';
   b.estado      = loc ? 'Confirmado' : 'Pendiente';
 
-  // Actualizar badges en DOM sin re-render completo
+  try { await api('PUT', `/bookings/${id}`, { localizador: b.localizador, estado: b.estado }); } catch(e) { console.error('Error guardando localizador:', e); }
+
   const estadoEl = document.getElementById(`estado-badge-${id}`);
   if (estadoEl) {
     estadoEl.className   = `badge ${estadoBadge(b.estado)}`;
@@ -2521,13 +2540,15 @@ async function _doUpdateLocalizador(id, value) {
 function updateBookingStatus(id, estado) {
   const idx = state.bookings.findIndex(bk => bk.id === id);
   if (idx !== -1) state.bookings[idx] = { ...state.bookings[idx], estado };
+  api('PUT', `/bookings/${id}`, { estado }).catch(e => console.error('Error actualizando estado:', e));
   renderViajes();
   showToast('success','Estado actualizado',`Reserva #${id} → ${estado}`);
 }
 
-function deleteBooking(id) {
+async function deleteBooking(id) {
   if (!confirm('¿Eliminar esta reserva? No se puede deshacer.')) return;
   state.bookings = state.bookings.filter(b=>b.id!==id);
+  await api('DELETE', `/bookings/${id}`).catch(e => console.error('Error eliminando reserva:', e));
   navigateTo('viajes');
   showToast('success','Reserva eliminada','La reserva ha sido eliminada del sistema.');
 }
@@ -2539,7 +2560,6 @@ async function doAddInvoice(e) {
   const fec = val('i-fec');
   const imp = parseFloat(val('i-imp'));
   const est = val('i-est');
-  const fi  = $('i-file');
   let ok = true;
 
   if (!num.trim()) { fieldErr('e-i-num','i-num','El número de factura es obligatorio'); ok=false; }
@@ -2552,7 +2572,6 @@ async function doAddInvoice(e) {
 
   const bid = val('i-booking');
   const newInvoice = {
-    id: Date.now(),
     numero: num,
     fecha: fec,
     importe: parseFloat(imp),
@@ -2560,15 +2579,21 @@ async function doAddInvoice(e) {
     archivo: state._pendingInvoiceFile ? state._pendingInvoiceFile.name : null,
     booking_id: bid || null,
   };
-  state.invoices.push(newInvoice);
+  try {
+    const saved = await api('POST', '/invoices', newInvoice);
+    state.invoices.push(saved);
+  } catch(err) {
+    state.invoices.push({ id: Date.now(), ...newInvoice });
+  }
   state._pendingInvoiceFile = null;
   navigateTo('facturas');
   showToast('success','Factura registrada',`${num} — €${imp} añadida correctamente.`);
 }
 
-function deleteInvoice(id) {
+async function deleteInvoice(id) {
   if (!confirm('¿Eliminar esta factura?')) return;
   state.invoices = state.invoices.filter(i=>i.id!==id);
+  await api('DELETE', `/invoices/${id}`).catch(e => console.error('Error eliminando factura:', e));
   navigateTo('facturas');
   showToast('success','Factura eliminada','La factura ha sido eliminada correctamente.');
 }
@@ -2598,22 +2623,29 @@ async function doAddMember(e) {
   if (!ok) return;
 
   const newMember = {
-    id: Date.now(),
     nombre: nom,
     apellido: ape,
+    apellido1: ape.split(' ')[0],
+    apellido2: ape.split(' ').slice(1).join(' ') || null,
     dni,
     telefono: `${pre} ${tel}`,
     fechaNacimiento: fnac,
     fechaExpiracion: fexp,
   };
-  state.members.push(newMember);
+  try {
+    const saved = await api('POST', '/members', newMember);
+    state.members.push(saved);
+  } catch(err) {
+    state.members.push({ id: Date.now(), ...newMember });
+  }
   navigateTo('miembros');
   showToast('success','Miembro registrado',`${nom} ${ape} ha sido añadido correctamente.`);
 }
 
-function deleteMember(id) {
+async function deleteMember(id) {
   if (!confirm('¿Eliminar este miembro?')) return;
   state.members = state.members.filter(m=>m.id!==id);
+  await api('DELETE', `/members/${id}`).catch(e => console.error('Error eliminando miembro:', e));
   navigateTo('miembros');
   showToast('success','Miembro eliminado','El miembro ha sido eliminado del sistema.');
 }
@@ -2623,6 +2655,7 @@ async function doAddVehicle(e) {
   e.preventDefault();
   const mar = val('v-mar').trim();
   const mod = val('v-mod').trim();
+  const mat = val('v-mat').trim();
   const anc = parseFloat(val('v-anc'));
   const lar = parseFloat(val('v-lar'));
   const alt = parseFloat(val('v-alt'));
@@ -2638,21 +2671,27 @@ async function doAddVehicle(e) {
   if (!ok) return;
 
   const newVeh = {
-    id: Date.now(),
     marca: mar,
     modelo: mod,
+    matricula: mat,
     ancho: anc,
     largo: lar,
     alto: alt,
   };
-  state.vehicles.push(newVeh);
+  try {
+    const saved = await api('POST', '/vehicles', newVeh);
+    state.vehicles.push(saved);
+  } catch(err) {
+    state.vehicles.push({ id: Date.now(), ...newVeh });
+  }
   navigateTo('vehiculos');
   showToast('success','Vehículo añadido',`${mar} ${mod} registrado en la flota.`);
 }
 
-function deleteVehicle(id) {
+async function deleteVehicle(id) {
   if (!confirm('¿Eliminar este vehículo de la flota?')) return;
   state.vehicles = state.vehicles.filter(v=>v.id!==id);
+  await api('DELETE', `/vehicles/${id}`).catch(e => console.error('Error eliminando vehículo:', e));
   navigateTo('vehiculos');
   showToast('success','Vehículo eliminado','El vehículo ha sido retirado de la flota.');
 }
@@ -2671,8 +2710,10 @@ async function doInviteAdmin(e) {
   const newId = Date.now();
   const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
   state.pendingAdmin = { email, usuario, id: newId, token };
-  state.admins.push({ id: newId, nombre: usuario, email, usuario, activo: false,
-                      fecha: new Date().toISOString().split('T')[0], acciones: 'Invitación enviada' });
+  const newAdmin = { id: newId, nombre: usuario, email, usuario, activo: false,
+                      fecha: new Date().toISOString().split('T')[0], acciones: 'Invitación enviada' };
+  state.admins.push(newAdmin);
+  try { await api('POST', '/administrators', newAdmin); } catch(e) { console.error('Error guardando admin:', e); }
 
   $('ia-email').value = '';
   $('ia-user').value  = '';
@@ -2721,14 +2762,16 @@ function toggleAdmin(id, active) {
   const a = state.admins.find(a=>a.id===id);
   if (!a) return;
   a.activo = active;
+  api('PUT', `/administrators/${id}`, { activo: active }).catch(e => console.error('Error toggle admin:', e));
   showToast('success','Estado actualizado',`${a.nombre} está ahora ${active?'activo':'inactivo'}.`);
   setTimeout(()=>navigateTo('administradores'), 80);
 }
 
-function deleteAdmin(id) {
+async function deleteAdmin(id) {
   if (id===1) { showToast('error','No permitido','No se puede eliminar al administrador principal.'); return; }
   if (!confirm('¿Eliminar este administrador?')) return;
   state.admins = state.admins.filter(a=>a.id!==id);
+  await api('DELETE', `/administrators/${id}`).catch(e => console.error('Error eliminando admin:', e));
   navigateTo('administradores');
   showToast('success','Administrador eliminado','La cuenta ha sido eliminada del sistema.');
 }
@@ -3087,14 +3130,13 @@ async function editMember(id) {
   document.body.style.overflow = 'hidden';
 }
 
-function submitEditMember(e, id) {
+async function submitEditMember(e, id) {
   e.preventDefault();
   const idx = state.members.findIndex(m => m.id === id);
   if (idx >= 0) {
     const ape1 = val('em-ape1');
     const ape2 = val('em-ape2');
-    state.members[idx] = {
-      ...state.members[idx],
+    const changes = {
       nombre: val('em-nombre'),
       apellido: `${ape1}${ape2 ? ' ' + ape2 : ''}`,
       apellido1: ape1,
@@ -3103,6 +3145,8 @@ function submitEditMember(e, id) {
       telefono: val('em-tel'),
       nacionalidad: val('em-nac'),
     };
+    state.members[idx] = { ...state.members[idx], ...changes };
+    api('PUT', `/members/${id}`, changes).catch(e => console.error('Error guardando miembro:', e));
   }
   closeBookingModal();
   navigateTo(state.currentSection);
@@ -3162,13 +3206,14 @@ async function submitEditVehicle(e, id) {
   }
   const idx = state.vehicles.findIndex(v => v.id === id);
   if (idx >= 0) {
-    state.vehicles[idx] = {
-      ...state.vehicles[idx],
+    const changes = {
       marca: val('ev-marca'),
       modelo: val('ev-modelo'),
       matricula: val('ev-mat'),
       ancho, largo, alto,
     };
+    state.vehicles[idx] = { ...state.vehicles[idx], ...changes };
+    api('PUT', `/vehicles/${id}`, changes).catch(e => console.error('Error guardando vehículo:', e));
   }
   closeBookingModal();
   navigateTo(state.currentSection);
@@ -3279,8 +3324,7 @@ function submitEditBooking(e, id) {
   e.preventDefault();
   const idx = state.bookings.findIndex(b => b.id === id);
   if (idx >= 0) {
-    state.bookings[idx] = {
-      ...state.bookings[idx],
+    const changes = {
       origin:        val('eb-origin'),
       destination:   val('eb-dest'),
       naviera:       val('eb-naviera'),
@@ -3296,6 +3340,8 @@ function submitEditBooking(e, id) {
       paxEmail:      val('eb-pemail'),
       paxTelefono:   val('eb-ptel') || null,
     };
+    state.bookings[idx] = { ...state.bookings[idx], ...changes };
+    api('PUT', `/bookings/${id}`, changes).catch(e => console.error('Error guardando reserva:', e));
   }
   closeBookingModal();
   navigateTo(state.currentSection);
@@ -3360,13 +3406,14 @@ function submitEditInvoice(e, id) {
   e.preventDefault();
   const idx = state.invoices.findIndex(i => i.id === id);
   if (idx >= 0) {
-    state.invoices[idx] = {
-      ...state.invoices[idx],
+    const changes = {
       numero:  val('ei-num'),
       fecha:   val('ei-fec'),
       importe: parseFloat(val('ei-imp')) || 0,
       estado:  val('ei-est'),
     };
+    state.invoices[idx] = { ...state.invoices[idx], ...changes };
+    api('PUT', `/invoices/${id}`, changes).catch(e => console.error('Error guardando factura:', e));
   }
   closeBookingModal();
   navigateTo(state.currentSection);

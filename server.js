@@ -141,6 +141,100 @@ function isValidDate(v) {
 }
 
 // ============================================================
+// DATA & CRUD — PostgreSQL
+// ============================================================
+app.get('/api/data', async (_req, res) => {
+  try {
+    const [bookings, members, vehicles, invoices, admins, fp] = await Promise.all([
+      db.getAll('bookings'),
+      db.getAll('members'),
+      db.getAll('vehicles'),
+      db.getAll('invoices'),
+      db.getAll('administrators'),
+      db.getAll('frequent_passengers'),
+    ]);
+    ok(res, { bookings, members, vehicles, invoices, admins, frequentPassengers: fp });
+  } catch (err) {
+    console.error('[DATA] Error loading data:', err.message);
+    fail(res, 'Error al cargar datos', 500);
+  }
+});
+
+app.post('/api/bookings', async (req, res) => {
+  try { const row = await db.insertRow('bookings', req.body); ok(res, row, 201); }
+  catch (err) { console.error('[DB] booking insert:', err); fail(res, err.message, 400); }
+});
+app.put('/api/bookings/:id', async (req, res) => {
+  try { const row = await db.updateRow('bookings', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Reserva no encontrada', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.delete('/api/bookings/:id', async (req, res) => {
+  try { const n = await db.deleteRow('bookings', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Reserva no encontrada', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+
+app.post('/api/members', async (req, res) => {
+  try { const row = await db.insertRow('members', req.body); ok(res, row, 201); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.put('/api/members/:id', async (req, res) => {
+  try { const row = await db.updateRow('members', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Miembro no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.delete('/api/members/:id', async (req, res) => {
+  try { const n = await db.deleteRow('members', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Miembro no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+
+app.post('/api/vehicles', async (req, res) => {
+  try { const row = await db.insertRow('vehicles', req.body); ok(res, row, 201); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.put('/api/vehicles/:id', async (req, res) => {
+  try { const row = await db.updateRow('vehicles', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Vehículo no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.delete('/api/vehicles/:id', async (req, res) => {
+  try { const n = await db.deleteRow('vehicles', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Vehículo no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+
+app.post('/api/invoices', async (req, res) => {
+  try { const row = await db.insertRow('invoices', req.body); ok(res, row, 201); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.put('/api/invoices/:id', async (req, res) => {
+  try { const row = await db.updateRow('invoices', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Factura no encontrada', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.delete('/api/invoices/:id', async (req, res) => {
+  try { const n = await db.deleteRow('invoices', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Factura no encontrada', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+
+app.post('/api/administrators', async (req, res) => {
+  try { const row = await db.insertRow('administrators', req.body); ok(res, row, 201); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.put('/api/administrators/:id', async (req, res) => {
+  try { const row = await db.updateRow('administrators', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Administrador no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.delete('/api/administrators/:id', async (req, res) => {
+  try { const n = await db.deleteRow('administrators', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Administrador no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+
+app.post('/api/frequent-passengers', async (req, res) => {
+  try { const row = await db.insertRow('frequent_passengers', req.body); ok(res, row, 201); }
+  catch (err) { fail(res, err.message, 400); }
+});
+app.delete('/api/frequent-passengers/:id', async (req, res) => {
+  try { const n = await db.deleteRow('frequent_passengers', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Pasajero no encontrado', 404); }
+  catch (err) { fail(res, err.message, 400); }
+});
+
+// ============================================================
 // KIKOTO API PROXY
 // ============================================================
 const KIKOTO_API_BASE = process.env.KIKOTO_API_BASE || 'https://api.b2b.kikoto.com/v1';
@@ -285,6 +379,22 @@ app.post('/api/timetables', async (req, res) => {
 });
 
 // ============================================================
+// DATABASE — PostgreSQL via db.js
+// ============================================================
+const db = require('./db');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function ok(res, data, status = 200) {
+  res.status(status).json(data);
+}
+
+function fail(res, message, status = 400) {
+  res.status(status).json({ error: message });
+}
+
+// ============================================================
 // BOOKING NOTIFICATION — envía email al confirmar reserva
 // ============================================================
 app.post('/api/bookings/notify', async (req, res) => {
@@ -314,14 +424,22 @@ app.use((err, _req, res, _next) => {
 // ARRANCAR SERVIDOR
 // ============================================================
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`\n  ╔══════════════════════════════════════════╗`);
-    console.log(`  ║   ALSA — Rutas y Horarios                ║`);
-    console.log(`  ║   Node.js + Express                     ║`);
-    console.log(`  ╠══════════════════════════════════════════╣`);
-    console.log(`  ║   http://localhost:${PORT}                   ║`);
-    console.log(`  ╚══════════════════════════════════════════╝\n`);
-  });
+  (async () => {
+    try {
+      await db.init();
+    } catch (err) {
+      console.error('[DB] Failed to initialize database:', err.message);
+      process.exit(1);
+    }
+    app.listen(PORT, () => {
+      console.log(`\n  ╔══════════════════════════════════════════╗`);
+      console.log(`  ║   ALSA — Rutas y Horarios                ║`);
+      console.log(`  ║   Node.js + Express + PostgreSQL         ║`);
+      console.log(`  ╠══════════════════════════════════════════╣`);
+      console.log(`  ║   http://localhost:${PORT}                   ║`);
+      console.log(`  ╚══════════════════════════════════════════╝\n`);
+    });
+  })();
 }
 
 module.exports = app;
