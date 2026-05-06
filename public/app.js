@@ -938,15 +938,27 @@ let _dpMonth = null;
 let _dpYear = null;
 
 function openDatePicker(type) {
-  _dpType = type;
   closeDatePicker();
+  _dpType = type;
   const dropId = type === 'ida' ? 'dp-ida' : 'dp-vuelta';
   const drop = $(dropId);
   if (!drop) return;
 
   const now = new Date();
-  _dpMonth = now.getMonth();
-  _dpYear = now.getFullYear();
+  const currentVal = type === 'ida' ? val('h-fecha-ida') : val('h-fecha-vuelta');
+  if (currentVal) {
+    const d = new Date(currentVal + 'T00:00:00');
+    if (!isNaN(d)) {
+      _dpMonth = d.getMonth();
+      _dpYear = d.getFullYear();
+    } else {
+      _dpMonth = now.getMonth();
+      _dpYear = now.getFullYear();
+    }
+  } else {
+    _dpMonth = now.getMonth();
+    _dpYear = now.getFullYear();
+  }
 
   drop.innerHTML = renderDatePickerCalendar(_dpYear, _dpMonth, type);
   drop.style.display = 'block';
@@ -957,7 +969,6 @@ function closeDatePicker() {
   const dpVue = $('dp-vuelta');
   if (dpIda) dpIda.style.display = 'none';
   if (dpVue) dpVue.style.display = 'none';
-  _dpType = null;
 }
 
 function closeDatePickerOnOutside(e) {
