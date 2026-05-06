@@ -319,6 +319,23 @@ app.get('/api/routes', async (_req, res) => {
 });
 
 // ============================================================
+// ROUTE AVAILABILITIES
+// ============================================================
+app.get('/api/routes/:id/availabilities', async (req, res) => {
+  const routeId = req.params.id;
+  if (!routeId) return fail(res, 'Route ID es obligatorio.');
+
+  try {
+    const availRes = await fetchKikoto(`/routes/${routeId}/availabilities`);
+    const availabilities = availRes.data || availRes || [];
+    ok(res, Array.isArray(availabilities) ? availabilities : []);
+  } catch (err) {
+    console.error('[AVAILABILITIES] Error:', err.message);
+    fail(res, 'Error al obtener disponibilidades: ' + err.message, 500);
+  }
+});
+
+// ============================================================
 // TIMETABLES
 // ============================================================
 app.post('/api/timetables', async (req, res) => {
@@ -384,16 +401,7 @@ app.post('/api/timetables', async (req, res) => {
 const db = require('./db');
 
 // ============================================================
-// HELPERS
-// ============================================================
-function ok(res, data, status = 200) {
-  res.status(status).json(data);
-}
-
-function fail(res, message, status = 400) {
-  res.status(status).json({ error: message });
-}
-
+// BOOKINGS CRUD
 // ============================================================
 // BOOKING NOTIFICATION — envía email al confirmar reserva
 // ============================================================

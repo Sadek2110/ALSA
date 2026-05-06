@@ -57,6 +57,7 @@ const state = {
   // Estado temporal del wizard (no persiste)
   routes:        [],
   searchResults: [],
+  availabilities: [],
   bookingWizard: null,
 };
 
@@ -718,21 +719,6 @@ function showWizStep1() {
           </div>
         </div>
       </div>
-      <div style="margin-bottom:18px">
-        <span class="form-sec-label">Fechas</span>
-        <div class="form-grid">
-          <div class="form-group" id="g-ida" style="margin-bottom:0">
-            <label class="form-label" style="font-size:0.8125rem">Fecha de ida</label>
-            <input type="date" class="form-input" id="h-fecha-ida" value="${esc(sp.fechaIda||'')}">
-            <span class="error-msg" id="e-fecha-ida"></span>
-          </div>
-          <div class="form-group" id="g-vuelta" style="margin-bottom:0;${(sp.tripType==='idayvuelta'||sp.tripType==='Ida y vuelta')?'':'opacity:0.4;pointer-events:none'}">
-            <label class="form-label" style="font-size:0.8125rem">Fecha de vuelta</label>
-            <input type="date" class="form-input" id="h-fecha-vuelta" value="${esc(sp.fechaVuelta||'')}">
-            <span class="error-msg" id="e-fecha-vuelta"></span>
-          </div>
-        </div>
-      </div>
       <div style="margin-bottom:22px">
         <span class="form-sec-label">Opciones</span>
         <div class="chips-row">
@@ -742,27 +728,12 @@ function showWizStep1() {
           </div>
         </div>
       </div>
-      <button class="btn btn-primary" style="width:auto;padding:11px 32px;font-size:1rem" onclick="doSearchSailings()">
+      <button class="btn btn-primary" style="width:auto;padding:11px 32px;font-size:1rem" onclick="doSearchAvailabilities()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Buscar disponibilidad
       </button>
     </div>`;
 
-  // Date constraints
-  const today = new Date().toISOString().split('T')[0];
-  const idaEl = $('h-fecha-ida');
-  if (idaEl) {
-    idaEl.min = today;
-    idaEl.addEventListener('change', () => {
-      const vuelEl = $('h-fecha-vuelta');
-      if (vuelEl && idaEl.value) {
-        vuelEl.min = idaEl.value;
-        if (vuelEl.value && vuelEl.value < idaEl.value) vuelEl.value = idaEl.value;
-      }
-    });
-  }
-
-  // Autofocus on origin input (Kikoto "Voy con prisa" philosophy)
   setTimeout(() => $('h-origen')?.focus(), 80);
 }
 
@@ -898,78 +869,67 @@ function hideDropdown(id) {
 }
 
 let _searchInProgress = false;
-async function doSearchSailings() {
+
+let _calMonth = null;
+let _calYear = null;
+
+async function doSearchAvailabilities() {
   if (_searchInProgress) return;
   const origenId    = val('h-origen-id');
   const destinoId   = val('h-destino-id');
   const origenNm    = val('h-origen');
   const destinoNm   = val('h-destino');
-  const fechaIda    = val('h-fecha-ida');
-  const fechaVuelta = val('h-fecha-vuelta');
   const _tripText   = document.querySelector('#home-seg .seg-btn.active')?.textContent.trim() || 'Ida';
   const _tripMap    = { 'Ida': 'ida', 'Vuelta': 'vuelta', 'Ida y vuelta': 'idayvuelta' };
   const tripType    = _tripMap[_tripText] || 'ida';
   const withVehicle = !!$('chip-vehiculo')?.classList.contains('active');
-  const isRoundTrip = tripType === 'idayvuelta';
   let isOk = true;
 
   if (!origenId || !origenNm) { fieldErr('e-origen','h-origen','Selecciona un puerto de origen'); isOk=false; } else fieldOk('e-origen','h-origen');
   if (!destinoId|| !destinoNm){ fieldErr('e-destino','h-destino','Selecciona un puerto de destino'); isOk=false; } else fieldOk('e-destino','h-destino');
-  if (!fechaIda) { fieldErr('e-fecha-ida','h-fecha-ida','La fecha de ida es obligatoria'); isOk=false; } else fieldOk('e-fecha-ida','h-fecha-ida');
-  if (isRoundTrip) {
-    if (!fechaVuelta) { fieldErr('e-fecha-vuelta','h-fecha-vuelta','La fecha de vuelta es obligatoria'); isOk=false; }
-    else if (fechaVuelta < fechaIda) { fieldErr('e-fecha-vuelta','h-fecha-vuelta','La vuelta no puede ser anterior a la ida'); isOk=false; }
-    else fieldOk('e-fecha-vuelta','h-fecha-vuelta');
-  }
   if (!isOk) return;
 
-  const searchParams = { origenNm, origenId, destinoNm, destinoId, fechaIda, fechaVuelta, tripType, withVehicle };
+  const searchParams = { origenNm, origenId, destinoNm, destinoId, tripType, withVehicle };
+  const routeObj = state.routes.find(r => {
+    const { depId, dstId } = getPortsFromRoute(r);
+    return String(depId) === String(origenId) && String(dstId) === String(destinoId);
+  });
+  const routeId = routeObj ? routeObj.id : null;
+
   state.bookingWizard = {
     tripType, origin: origenNm, originId: origenId,
     destination: destinoNm, destinationId: destinoId,
-    dateIda: fechaIda, dateVuelta: fechaVuelta || null,
+    dateIda: null, dateVuelta: null,
     withVehicle, selectedSailing: null, passengers: [], vehicle: null, saveAsFrequent: false,
-    searchParams,
+    searchParams, routeId,
   };
 
-  // Loading state
   const content = $('wiz-content');
   if (content) content.innerHTML = `<div class="card" style="text-align:center;padding:48px 24px">
     <div class="loading-row" style="justify-content:center;margin-bottom:8px">
       <div class="loading-spinner"></div>
-      <span>Consultando navieras disponibles…</span>
+      <span>Consultando disponibilidad…</span>
     </div>
-    <div style="font-size:0.8125rem;color:var(--gray-400)">${esc(origenNm)} → ${esc(destinoNm)} · ${esc(fechaIda)}</div>
+    <div style="font-size:0.8125rem;color:var(--gray-400)">${esc(origenNm)} → ${esc(destinoNm)}</div>
   </div>`;
 
+  renderWizStepBar(2, withVehicle);
   _searchInProgress = true;
+
+  state.availabilities = [];
+  state.searchResults = [];
+
   try {
-    const ttRes = await api('POST', '/timetables', {
-      departure_port_id: Number(origenId),
-      destination_port_id: Number(destinoId),
-      date: fechaIda,
-    });
-    const timetables = Array.isArray(ttRes) ? ttRes : (ttRes.data || ttRes.timetables || []);
-
-    const combined = timetables.map(t => ({
-      naviera:       t.naviera || t.name || 'Naviera',
-      naviera_id:    t.naviera_id || t.id || null,
-      departureDate: t.date || t.departureDate || fechaIda,
-      departureTime: t.departureTime || t.departure_time || t.time || '—',
-      raw:           t.raw || t,
-    }));
-    state.searchResults = combined;
-
-    if (combined.length === 0) {
-      if (content) content.innerHTML = `<div class="card" style="text-align:center;padding:48px 24px">
-        <div style="font-size:2rem;margin-bottom:12px">🚢</div>
-        <div style="font-weight:700;font-size:1rem;margin-bottom:8px">Sin disponibilidad</div>
-        <div style="color:var(--gray-400);font-size:0.875rem;margin-bottom:20px">No hay reservas para <strong>${esc(origenNm)} → ${esc(destinoNm)}</strong> el ${fmtDateShort(fechaIda)}.</div>
-        <button class="btn btn-secondary" style="width:auto" onclick="showWizStep1()">Cambiar búsqueda</button>
-      </div>`;
-      return;
+    if (routeId) {
+      try {
+        const availRes = await api('GET', `/routes/${routeId}/availabilities`);
+        const availData = Array.isArray(availRes) ? availRes : (availRes.data || []);
+        state.availabilities = availData;
+      } catch(e) {
+        console.warn('Availabilities error, continuing without:', e.message);
+      }
     }
-    showWizStep2();
+    showWizStep2Calendar();
   } catch(err) {
     if (content) content.innerHTML = `<div class="card" style="text-align:center;padding:48px 24px">
       <div style="color:var(--danger);font-weight:700;margin-bottom:8px">Error al consultar disponibilidad</div>
@@ -979,6 +939,240 @@ async function doSearchSailings() {
   } finally {
     _searchInProgress = false;
   }
+}
+
+function showWizStep2Calendar() {
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  renderWizStepBar(2, wz.withVehicle || false);
+  const content = $('wiz-content');
+  if (!content) return;
+
+  const now = new Date();
+  _calMonth = _calMonth ?? now.getMonth();
+  _calYear = _calYear ?? now.getFullYear();
+
+  const availMap = {};
+  (state.availabilities || []).forEach(a => {
+    const key = `${a.year}-${String(a.month).padStart(2,'0')}-${String(a.day).padStart(2,'0')}`;
+    availMap[key] = a.status;
+  });
+
+  const calHtml = buildCalendarHtml(_calYear, _calMonth, availMap);
+  const { origenNm, destinoNm } = wz.searchParams;
+
+  content.innerHTML = `<div class="card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="state.availabilities=[];state.searchResults=[];_calMonth=null;_calYear=null;showWizStep1()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Cambiar búsqueda
+      </button>
+      <div>
+        <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">${esc(origenNm)} → ${esc(destinoNm)}</div>
+        ${wz.dateIda ? `<div style="font-size:0.8125rem;color:var(--gray-400)">Ida: <strong style="color:var(--primary)">${fmtDateShort(wz.dateIda)}</strong>${wz.dateVuelta ? ` · Vuelta: <strong style="color:var(--primary)">${fmtDateShort(wz.dateVuelta)}</strong>` : (wz.tripType === 'idayvuelta' ? ' · Selecciona fecha de vuelta' : '')}</div>` : '<div style="font-size:0.8125rem;color:var(--gray-400)">Selecciona una fecha disponible</div>'}
+      </div>
+    </div>
+
+    <div class="avl-calendar-section">
+      <div id="avl-cal-container">${calHtml}</div>
+      <div class="avl-legend">
+        <span class="avl-legend-item"><span class="avl-legend-dot avl-dot-available"></span> Disponible</span>
+        <span class="avl-legend-item"><span class="avl-legend-dot avl-dot-unavailable"></span> No disponible</span>
+        <span class="avl-legend-item"><span class="avl-legend-dot avl-dot-selected"></span> Seleccionado</span>
+      </div>
+    </div>
+
+    <div id="avl-sailings-container"></div>
+  </div>`;
+}
+
+function buildCalendarHtml(year, month, availMap) {
+  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DAYS = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = lastDay.getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let prevMonth = month === 0 ? 11 : month - 1;
+  let prevYear = month === 0 ? year - 1 : year;
+
+  let html = `<div class="avl-cal">`;
+  html += `<div class="avl-cal-header">
+    <button class="avl-cal-nav" onclick="calNav(-1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="avl-cal-title">${MONTHS[month]} ${year}</div>
+    <button class="avl-cal-nav" onclick="calNav(1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+  </div>`;
+  html += `<div class="avl-cal-grid">`;
+  DAYS.forEach(d => { html += `<div class="avl-cal-dow">${d}</div>`; });
+
+  const prevLast = new Date(prevYear, prevMonth + 1, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--) {
+    const d = prevLast - i;
+    html += `<div class="avl-cal-day avl-day-empty">${d}</div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dateObj = new Date(year, month, d);
+    const isPast = dateObj < today;
+    const status = availMap[dateStr];
+const isSelected = state.bookingWizard?.dateIda === dateStr || state.bookingWizard?.dateVuelta === dateStr;
+    const isIda = state.bookingWizard?.dateIda === dateStr;
+    const isVuelta = state.bookingWizard?.dateVuelta === dateStr;
+
+    let cls = 'avl-cal-day';
+    if (isPast) {
+      cls += ' avl-day-past';
+    } else if (isIda || isVuelta) {
+      cls += ' avl-day-selected';
+    } else if (status === 'available') {
+      cls += ' avl-day-available';
+    } else {
+      cls += ' avl-day-unavailable';
+    }
+
+    const clickable = !isPast && status === 'available';
+    const onclick = clickable ? `onclick="selectCalDate('${dateStr}')"` : '';
+    html += `<div class="${cls}" ${onclick}>${d}</div>`;
+  }
+
+  const totalCells = startDow + daysInMonth;
+  const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 1; i <= remaining; i++) {
+    html += `<div class="avl-cal-day avl-day-empty">${i}</div>`;
+  }
+
+  html += `</div></div>`;
+  return html;
+}
+
+function calNav(dir) {
+  _calMonth += dir;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  showWizStep2Calendar();
+}
+
+async function selectCalDate(dateStr) {
+  if (!state.bookingWizard) return;
+  const wz = state.bookingWizard;
+  const isRoundTrip = wz.tripType === 'idayvuelta';
+
+  if (isRoundTrip) {
+    if (!wz.dateIda) {
+      wz.dateIda = dateStr;
+      wz.dateVuelta = null;
+    } else if (!wz.dateVuelta) {
+      if (dateStr <= wz.dateIda) {
+        wz.dateVuelta = wz.dateIda;
+        wz.dateIda = dateStr;
+      } else {
+        wz.dateVuelta = dateStr;
+      }
+    } else {
+      wz.dateIda = dateStr;
+      wz.dateVuelta = null;
+    }
+  } else {
+    wz.dateIda = dateStr;
+    wz.dateVuelta = null;
+  }
+
+  if (isRoundTrip && wz.dateIda && !wz.dateVuelta) {
+    showWizStep2Calendar();
+    const sailingsContainer = $('avl-sailings-container');
+    if (sailingsContainer) {
+      sailingsContainer.innerHTML = `<div style="text-align:center;padding:24px;color:var(--gray-400);font-size:0.875rem">
+        <div style="margin-bottom:8px">Ahora selecciona la <strong>fecha de vuelta</strong></div>
+        <div style="font-size:0.8125rem">Ida: ${fmtDateShort(wz.dateIda)}</div>
+      </div>`;
+    }
+    return;
+  }
+
+  showWizStep2Calendar();
+
+  const sailingsContainer = $('avl-sailings-container');
+  if (sailingsContainer) {
+    sailingsContainer.innerHTML = `<div class="loading-row" style="justify-content:center;padding:24px">
+      <div class="loading-spinner"></div>
+      <span>Consultando horarios…</span>
+    </div>`;
+  }
+
+  try {
+    const ttRes = await api('POST', '/timetables', {
+      departure_port_id: Number(wz.originId),
+      destination_port_id: Number(wz.destinationId),
+      date: wz.dateIda,
+    });
+    const timetables = Array.isArray(ttRes) ? ttRes : (ttRes.data || ttRes.timetables || []);
+    const combined = timetables.map(t => ({
+      naviera:       t.naviera || t.name || 'Naviera',
+      naviera_id:    t.naviera_id || t.id || null,
+      departureDate: t.date || t.departureDate || wz.dateIda,
+      departureTime: t.departureTime || t.departure_time || t.time || '—',
+      raw:           t.raw || t,
+    }));
+    state.searchResults = combined;
+    renderSailings(combined);
+  } catch(err) {
+    if (sailingsContainer) {
+      sailingsContainer.innerHTML = `<div style="text-align:center;padding:24px;color:var(--danger)">
+        Error al cargar horarios: ${esc(err.message)}
+      </div>`;
+    }
+  }
+}
+
+function renderSailings(combined) {
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  const sailingsContainer = $('avl-sailings-container');
+  if (!sailingsContainer) return;
+
+  if (combined.length === 0) {
+    sailingsContainer.innerHTML = `<div style="text-align:center;padding:32px 24px">
+      <div style="font-size:2rem;margin-bottom:12px">🚢</div>
+      <div style="font-weight:700;font-size:1rem;margin-bottom:8px">Sin salidas disponibles</div>
+      <div style="color:var(--gray-400);font-size:0.875rem">No hay horarios para el ${fmtDateShort(wz.dateIda)}</div>
+    </div>`;
+    return;
+  }
+
+  const label = wz.dateVuelta && wz.tripType === 'idayvuelta'
+    ? `<span style="color:var(--primary)">Ida: ${fmtDateShort(wz.dateIda)}</span>${wz.dateVuelta ? ` · Vuelta: ${fmtDateShort(wz.dateVuelta)}` : ''}`
+    : fmtDateShort(wz.dateIda);
+
+  sailingsContainer.innerHTML = `
+    <div style="margin-top:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">${label} · ${combined.length} salida${combined.length!==1?'s':''}</div>
+        </div>
+      </div>
+      ${combined.map((r,i) => `
+        <div class="sailing-row" onclick="selectSailing(${i})">
+          <div class="sailing-main">
+            ${getNavieraLogo(r.naviera, 'lg')}
+            <div class="sailing-info">
+              <div class="sailing-naviera">${esc(r.naviera)}</div>
+              <div class="sailing-time">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Salida: <strong>${esc(r.departureDate)} ${esc(r.departureTime)}</strong>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:auto;flex-shrink:0">Seleccionar →</button>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function doSearchSailings() {
+  doSearchAvailabilities();
 }
 
 function mergeResults(sailings, timetables, date) {
@@ -1010,42 +1204,6 @@ function mergeResults(sailings, timetables, date) {
 }
 
 // ── Paso 2: Disponibilidad ────────────────────────────────────
-function showWizStep2() {
-  const wz = state.bookingWizard;
-  renderWizStepBar(2, wz?.withVehicle || false);
-  const content = $('wiz-content');
-  if (!content) return;
-  const { origenNm, destinoNm, fechaIda } = wz.searchParams;
-  const combined = state.searchResults;
-  content.innerHTML = `<div class="card">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-      <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="showWizStep1()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        Cambiar búsqueda
-      </button>
-      <div>
-        <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">${esc(origenNm)} → ${esc(destinoNm)}</div>
-        <div style="font-size:0.8125rem;color:var(--gray-400)">${fmtDateShort(fechaIda)} · ${combined.length} opción${combined.length!==1?'es':''} disponible${combined.length!==1?'s':''}</div>
-      </div>
-    </div>
-    ${combined.map((r,i) => `
-      <div class="sailing-row" onclick="selectSailing(${i})">
-        <div class="sailing-main">
-          ${getNavieraLogo(r.naviera, 'lg')}
-          <div class="sailing-info">
-            <div class="sailing-naviera">${esc(r.naviera)}</div>
-            <div class="sailing-time">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Salida: <strong>${esc(r.departureDate)} ${esc(r.departureTime)}</strong>
-            </div>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-sm" style="width:auto;flex-shrink:0">Seleccionar →</button>
-      </div>
-    `).join('')}
-  </div>`;
-}
-
 function selectSailing(idx) {
   const s = state.searchResults[idx];
   if (!s || !state.bookingWizard) return;
@@ -1088,7 +1246,7 @@ function showWizStep3() {
   content.innerHTML = `
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="showWizStep2()">
+        <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="showWizStep2Calendar()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           Volver
         </button>
@@ -2787,19 +2945,6 @@ async function deleteAdmin(id) {
 function selectTripType(type, btn) {
   document.querySelectorAll('#home-seg .seg-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  const gida  = $('g-ida');
-  const gvue  = $('g-vuelta');
-  if (!gida||!gvue) return;
-  if (type==='ida') {
-    gida.style.cssText='opacity:1;pointer-events:auto';
-    gvue.style.cssText='opacity:0.4;pointer-events:none';
-  } else {
-    gida.style.cssText='opacity:1;pointer-events:auto';
-    gvue.style.cssText='opacity:1;pointer-events:auto';
-    // Ensure min date on vuelta is set if ida is already selected
-    const idaEl = $('h-fecha-ida'), vuelEl = $('h-fecha-vuelta');
-    if (idaEl?.value && vuelEl) { vuelEl.min = idaEl.value; }
-  }
 }
 
 // ============================================================
