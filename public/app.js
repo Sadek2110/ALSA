@@ -722,26 +722,24 @@ function showWizStep1() {
       <div style="margin-bottom:18px">
         <span class="form-sec-label">Fechas</span>
         <div class="form-grid">
-          <div class="form-group" id="g-ida" style="margin-bottom:0">
+          <div class="form-group" id="g-ida" style="margin-bottom:0;position:relative">
             <label class="form-label" style="font-size:0.8125rem">Fecha de ida</label>
-            <input type="date" class="form-input" id="h-fecha-ida" value="${esc(sp.fechaIda||'')}">
+            <div class="date-input-wrap" onclick="openDatePicker('ida')">
+              <input type="text" class="form-input date-input" id="h-fecha-ida" value="${esc(sp.fechaIda||'')}" placeholder="Selecciona fecha…" readonly>
+              <svg class="date-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
             <span class="error-msg" id="e-fecha-ida"></span>
+            <div class="date-picker-dropdown" id="dp-ida" style="display:none"></div>
           </div>
-          <div class="form-group" id="g-vuelta" style="margin-bottom:0;${(sp.tripType==='idayvuelta'||sp.tripType==='Ida y vuelta')?'':'opacity:0.4;pointer-events:none'}">
+          <div class="form-group" id="g-vuelta" style="margin-bottom:0;position:relative;${(sp.tripType==='idayvuelta'||sp.tripType==='Ida y vuelta')?'':'opacity:0.4;pointer-events:none'}">
             <label class="form-label" style="font-size:0.8125rem">Fecha de vuelta</label>
-            <input type="date" class="form-input" id="h-fecha-vuelta" value="${esc(sp.fechaVuelta||'')}">
+            <div class="date-input-wrap" onclick="openDatePicker('vuelta')">
+              <input type="text" class="form-input date-input" id="h-fecha-vuelta" value="${esc(sp.fechaVuelta||'')}" placeholder="Selecciona fecha…" readonly>
+              <svg class="date-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
             <span class="error-msg" id="e-fecha-vuelta"></span>
+            <div class="date-picker-dropdown" id="dp-vuelta" style="display:none"></div>
           </div>
-        </div>
-      </div>
-
-      <!-- Mini calendario de disponibilidad -->
-      <div id="mini-cal-wrap" style="margin-bottom:18px;display:none">
-        <span class="form-sec-label">Disponibilidad del mes</span>
-        <div id="mini-cal-body"></div>
-        <div class="avl-legend" style="justify-content:flex-start;margin-top:8px">
-          <span class="avl-legend-item"><span class="avl-legend-dot avl-dot-available"></span> Disponible</span>
-          <span class="avl-legend-item"><span class="avl-legend-dot avl-dot-unavailable"></span> No disp.</span>
         </div>
       </div>
 
@@ -760,26 +758,15 @@ function showWizStep1() {
       </button>
     </div>`;
 
-  // Date constraints
-  const today = new Date().toISOString().split('T')[0];
-  const idaEl = $('h-fecha-ida');
-  if (idaEl) {
-    idaEl.min = today;
-    idaEl.addEventListener('change', () => {
-      const vuelEl = $('h-fecha-vuelta');
-      if (vuelEl && idaEl.value) {
-        vuelEl.min = idaEl.value;
-        if (vuelEl.value && vuelEl.value < idaEl.value) vuelEl.value = idaEl.value;
-      }
-    });
-  }
-
   // Si ya había una ruta seleccionada, cargar disponibilidad
   const origenId = val('h-origen-id');
   const destinoId = val('h-destino-id');
   if (origenId && destinoId) {
-    loadMiniCalendar(Number(origenId), Number(destinoId));
+    loadAvailabilities(Number(origenId), Number(destinoId));
   }
+
+  // Cerrar pickers al hacer clic fuera
+  document.addEventListener('click', closeDatePickerOnOutside);
 
   setTimeout(() => $('h-origen')?.focus(), 80);
 }
@@ -902,22 +889,21 @@ function selectRoute(side, portId, portName) {
   if (hid) hid.value = portId;
   if (drop) { drop.innerHTML=''; drop.classList.remove('open'); }
 
-  // Al cambiar el origen, limpiar el destino seleccionado y ocultar calendario
+  // Al cambiar el origen, limpiar el destino seleccionado y disponibilidades
   if (side === 'origen') {
     const destInp = $('h-destino'), destHid = $('h-destino-id');
     if (destInp) destInp.value = '';
     if (destHid) destHid.value = '';
     hideDropdown('drop-destino');
-    const calWrap = $('mini-cal-wrap');
-    if (calWrap) calWrap.style.display = 'none';
+    state.availabilities = [];
   }
 
-  // Al seleccionar destino, cargar disponibilidad del mes
+  // Al seleccionar destino, cargar disponibilidades de la ruta
   if (side === 'destino') {
     const origenId = val('h-origen-id');
     const destinoId = val('h-destino-id');
     if (origenId && destinoId) {
-      loadMiniCalendar(Number(origenId), Number(destinoId));
+      loadAvailabilities(Number(origenId), Number(destinoId));
     }
   }
 }
@@ -928,36 +914,76 @@ function hideDropdown(id) {
 
 let _searchInProgress = false;
 
-async function loadMiniCalendar(origenId, destinoId) {
+async function loadAvailabilities(origenId, destinoId) {
   const routeObj = state.routes.find(r => {
     const { depId, dstId } = getPortsFromRoute(r);
     return String(depId) === String(origenId) && String(dstId) === String(destinoId);
   });
-  if (!routeObj) return;
-
-  const calWrap = $('mini-cal-wrap');
-  const calBody = $('mini-cal-body');
-  if (!calWrap || !calBody) return;
-
-  calBody.innerHTML = '<div class="loading-row" style="padding:8px 0"><div class="loading-spinner"></div><span style="font-size:0.8125rem;color:var(--gray-400)">Cargando disponibilidad…</span></div>';
-  calWrap.style.display = 'block';
-
+  if (!routeObj) {
+    state.availabilities = [];
+    return;
+  }
   try {
     const availRes = await api('GET', `/routes/${routeObj.id}/availabilities`);
     const availData = Array.isArray(availRes) ? availRes : (availRes.data || []);
     state.availabilities = availData;
-    const now = new Date();
-    calBody.innerHTML = renderMiniCalendar(now.getFullYear(), now.getMonth(), availData);
   } catch(e) {
-    console.warn('Mini calendar error:', e.message);
-    calWrap.style.display = 'none';
+    console.warn('Availabilities error:', e.message);
     state.availabilities = [];
   }
 }
 
-function renderMiniCalendar(year, month, availData) {
-  const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const DAYS = ['L','M','X','J','V','S','D'];
+let _dpType = null;
+let _dpMonth = null;
+let _dpYear = null;
+
+function openDatePicker(type) {
+  _dpType = type;
+  closeDatePicker();
+  const dropId = type === 'ida' ? 'dp-ida' : 'dp-vuelta';
+  const drop = $(dropId);
+  if (!drop) return;
+
+  const now = new Date();
+  _dpMonth = now.getMonth();
+  _dpYear = now.getFullYear();
+
+  drop.innerHTML = renderDatePickerCalendar(_dpYear, _dpMonth, type);
+  drop.style.display = 'block';
+}
+
+function closeDatePicker() {
+  const dpIda = $('dp-ida');
+  const dpVue = $('dp-vuelta');
+  if (dpIda) dpIda.style.display = 'none';
+  if (dpVue) dpVue.style.display = 'none';
+  _dpType = null;
+}
+
+function closeDatePickerOnOutside(e) {
+  if (!e) return;
+  const dpIda = $('dp-ida');
+  const dpVue = $('dp-vuelta');
+  const target = e.target;
+  if (!target) return;
+  // Si el clic fue dentro de un picker o en un input de fecha, no cerrar
+  if (dpIda && (dpIda.contains(target) || target.closest('#g-ida'))) return;
+  if (dpVue && (dpVue.contains(target) || target.closest('#g-vuelta'))) return;
+  closeDatePicker();
+}
+
+function dpNav(dir) {
+  _dpMonth += dir;
+  if (_dpMonth > 11) { _dpMonth = 0; _dpYear++; }
+  if (_dpMonth < 0) { _dpMonth = 11; _dpYear--; }
+  const dropId = _dpType === 'ida' ? 'dp-ida' : 'dp-vuelta';
+  const drop = $(dropId);
+  if (drop) drop.innerHTML = renderDatePickerCalendar(_dpYear, _dpMonth, _dpType);
+}
+
+function renderDatePickerCalendar(year, month, type) {
+  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DAYS = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const startDow = (firstDay.getDay() + 6) % 7;
@@ -965,18 +991,23 @@ function renderMiniCalendar(year, month, availData) {
   const today = new Date(); today.setHours(0,0,0,0);
 
   const availMap = {};
-  availData.forEach(a => {
+  (state.availabilities || []).forEach(a => {
     const key = `${a.year}-${String(a.month).padStart(2,'0')}-${String(a.day).padStart(2,'0')}`;
     availMap[key] = a.status;
   });
 
-  let html = `<div class="mini-cal">`;
-  html += `<div class="mini-cal-header">${MONTHS[month]} ${year}</div>`;
-  html += `<div class="mini-cal-grid">`;
-  DAYS.forEach(d => { html += `<div class="mini-cal-dow">${d}</div>`; });
+  let html = `<div class="dp-cal">`;
+  html += `<div class="dp-cal-header">
+    <button class="dp-cal-nav" onclick="event.stopPropagation();dpNav(-1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="dp-cal-title">${MONTHS[month]} ${year}</div>
+    <button class="dp-cal-nav" onclick="event.stopPropagation();dpNav(1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+  </div>`;
+  html += `<div class="dp-cal-grid">`;
+  DAYS.forEach(d => { html += `<div class="dp-cal-dow">${d}</div>`; });
 
-  for (let i = 0; i < startDow; i++) {
-    html += `<div class="mini-cal-day mini-cal-empty"></div>`;
+  const prevLast = new Date(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--) {
+    html += `<div class="dp-cal-day dp-cal-empty">${prevLast - i}</div>`;
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -984,27 +1015,48 @@ function renderMiniCalendar(year, month, availData) {
     const dateObj = new Date(year, month, d);
     const isPast = dateObj < today;
     const status = availMap[dateStr];
+    const isSelected = (type === 'ida' && val('h-fecha-ida') === dateStr) || (type === 'vuelta' && val('h-fecha-vuelta') === dateStr);
 
-    let cls = 'mini-cal-day';
+    let cls = 'dp-cal-day';
     if (isPast) {
-      cls += ' mini-cal-past';
+      cls += ' dp-cal-past';
+    } else if (isSelected) {
+      cls += ' dp-cal-selected';
     } else if (status === 'available') {
-      cls += ' mini-cal-available';
+      cls += ' dp-cal-available';
     } else {
-      cls += ' mini-cal-unavailable';
+      cls += ' dp-cal-unavailable';
     }
 
-    html += `<div class="${cls}">${d}</div>`;
+    const clickable = !isPast && status === 'available';
+    const onclick = clickable ? `onclick="event.stopPropagation();selectPickerDate('${dateStr}','${type}')"` : '';
+    html += `<div class="${cls}" ${onclick}>${d}</div>`;
   }
 
   const totalCells = startDow + daysInMonth;
   const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
-  for (let i = 0; i < remaining; i++) {
-    html += `<div class="mini-cal-day mini-cal-empty"></div>`;
+  for (let i = 1; i <= remaining; i++) {
+    html += `<div class="dp-cal-day dp-cal-empty">${i}</div>`;
   }
 
   html += `</div></div>`;
   return html;
+}
+
+function selectPickerDate(dateStr, type) {
+  const input = type === 'ida' ? $('h-fecha-ida') : $('h-fecha-vuelta');
+  if (input) input.value = dateStr;
+
+  // Si es ida, actualizar mínimo de vuelta
+  if (type === 'ida') {
+    const vuelInp = $('h-fecha-vuelta');
+    const vuelVal = vuelInp ? vuelInp.value : '';
+    if (vuelVal && vuelVal < dateStr) {
+      vuelInp.value = '';
+    }
+  }
+
+  closeDatePicker();
 }
 
 async function doSearchSailings() {
@@ -2938,11 +2990,11 @@ function selectTripType(type, btn) {
   if (type==='ida') {
     gida.style.cssText='opacity:1;pointer-events:auto';
     gvue.style.cssText='opacity:0.4;pointer-events:none';
+    const vuelInp = $('h-fecha-vuelta');
+    if (vuelInp) vuelInp.value = '';
   } else {
     gida.style.cssText='opacity:1;pointer-events:auto';
     gvue.style.cssText='opacity:1;pointer-events:auto';
-    const idaEl = $('h-fecha-ida'), vuelEl = $('h-fecha-vuelta');
-    if (idaEl?.value && vuelEl) { vuelEl.min = idaEl.value; }
   }
 }
 

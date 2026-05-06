@@ -1407,30 +1407,55 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
 .naviera-cell-badge img { width: 100%; height: 100%; object-fit: contain; }
 
 /* ======================================================
-   AVAILABILITY CALENDAR
+   DATE PICKER DROPDOWN (custom calendar)
 ====================================================== */
-.avl-calendar-section {
-  margin-bottom: 8px;
+.date-input-wrap {
+  position: relative;
+  cursor: pointer;
 }
 
-.avl-cal {
+.date-input {
+  width: 100%;
+  padding-right: 36px !important;
+  cursor: pointer;
+  background: var(--white);
+}
+
+.date-input-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--primary);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.date-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
   background: var(--white);
   border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 14px;
+  box-shadow: var(--shadow-lg);
+  min-width: 260px;
+  max-width: 300px;
   user-select: none;
 }
 
-.avl-cal-header {
+.dp-cal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
-.avl-cal-nav {
-  width: 36px;
-  height: 36px;
+.dp-cal-nav {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1.5px solid var(--gray-200);
   background: var(--white);
@@ -1440,241 +1465,120 @@ input:checked + .toggle-sl::before { transform: translateX(17px); }
   justify-content: center;
   transition: var(--transition);
   color: var(--gray-600);
+  padding: 0;
 }
 
-.avl-cal-nav:hover {
+.dp-cal-nav:hover {
   background: var(--primary-50);
   border-color: var(--primary);
   color: var(--primary);
-  transform: scale(1.05);
 }
 
-.avl-cal-title {
-  font-weight: 700;
-  font-size: 1.0625rem;
-  color: var(--gray-900);
-  letter-spacing: -0.01em;
-}
-
-.avl-cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-
-.avl-cal-dow {
-  text-align: center;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--gray-400);
-  padding: 6px 0 10px;
-  letter-spacing: 0.06em;
-}
-
-.avl-cal-day {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  position: relative;
-  cursor: default;
-  transition: all 0.15s ease;
-}
-
-.avl-day-empty {
-  color: var(--gray-200);
-  cursor: default;
-}
-
-.avl-day-past {
-  color: var(--gray-200);
-  text-decoration: line-through;
-  cursor: default;
-}
-
-.avl-day-unavailable {
-  color: var(--gray-300);
-  background: var(--gray-50);
-  cursor: not-allowed;
-}
-
-.avl-day-available {
-  color: var(--gray-900);
-  background: #ecfdf5;
-  border: 1.5px solid #86efac;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.avl-day-available::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #22c55e;
-}
-
-.avl-day-available:hover {
-  background: #d1fae5;
-  border-color: #22c55e;
-  transform: scale(1.08);
-  box-shadow: 0 2px 8px rgba(34,197,94,0.25);
-}
-
-.avl-day-selected {
-  color: var(--white) !important;
-  background: var(--primary) !important;
-  border: 2px solid var(--primary) !important;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(61,142,232,0.35);
-  transform: scale(1.08);
-}
-
-.avl-day-selected::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--white);
-}
-
-.avl-legend {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 14px;
-  padding: 8px 0;
-}
-
-.avl-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: var(--gray-500);
-  font-weight: 500;
-}
-
-.avl-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.avl-dot-available {
-  background: #ecfdf5;
-  border: 1.5px solid #86efac;
-}
-
-.avl-dot-unavailable {
-  background: var(--gray-50);
-  border: 1.5px solid var(--gray-200);
-}
-
-.avl-dot-selected {
-  background: var(--primary);
-  border: 2px solid var(--primary);
-}
-
-@media (max-width: 500px) {
-  .avl-cal {
-    padding: 14px;
-  }
-  .avl-cal-day {
-    font-size: 0.75rem;
-  }
-  .avl-cal-nav {
-    width: 32px;
-    height: 32px;
-  }
-  .avl-legend {
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-}
-
-/* ======================================================
-   MINI AVAILABILITY CALENDAR (step 1)
-====================================================== */
-.mini-cal {
-  background: var(--white);
-  border: 1.5px solid var(--gray-200);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  max-width: 280px;
-}
-
-.mini-cal-header {
-  text-align: center;
+.dp-cal-title {
   font-weight: 700;
   font-size: 0.8125rem;
-  color: var(--gray-700);
-  margin-bottom: 8px;
-  letter-spacing: 0.02em;
+  color: var(--gray-900);
 }
 
-.mini-cal-grid {
+.dp-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
 }
 
-.mini-cal-dow {
+.dp-cal-dow {
   text-align: center;
   font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--gray-400);
-  padding: 2px 0 4px;
+  padding: 3px 0 5px;
   letter-spacing: 0.04em;
 }
 
-.mini-cal-day {
+.dp-cal-day {
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   transition: all 0.12s ease;
 }
 
-.mini-cal-empty {
-  background: transparent;
+.dp-cal-empty {
+  color: var(--gray-200);
+  cursor: default;
 }
 
-.mini-cal-past {
+.dp-cal-past {
   color: var(--gray-200);
   text-decoration: line-through;
+  cursor: default;
 }
 
-.mini-cal-unavailable {
+.dp-cal-unavailable {
   color: var(--gray-300);
   background: var(--gray-50);
   cursor: not-allowed;
 }
 
-.mini-cal-available {
+.dp-cal-available {
   color: var(--gray-900);
   background: #ecfdf5;
   border: 1px solid #86efac;
+  cursor: pointer;
   font-weight: 600;
+}
+
+.dp-cal-available:hover {
+  background: #d1fae5;
+  border-color: #22c55e;
+  transform: scale(1.08);
+  box-shadow: 0 2px 6px rgba(34,197,94,0.2);
+}
+
+.dp-cal-selected {
+  color: var(--white) !important;
+  background: var(--primary) !important;
+  border: 2px solid var(--primary) !important;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(61,142,232,0.3);
+  transform: scale(1.08);
+}
+
+.avl-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.avl-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+  color: var(--gray-500);
+}
+
+.avl-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.avl-dot-available {
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+}
+
+.avl-dot-unavailable {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
 }
 
 /* ======================================================
