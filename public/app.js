@@ -1882,7 +1882,7 @@ async function doFinalizeBooking(e) {
     state.bookings.unshift(...savedBookings);
     state.lastCreatedBookingId = savedBookings[0].id;
 
-if ($('pax-frecuente')?.checked) {
+    if ($('pax-frecuente')?.checked) {
       const pax = wz.passengers[0];
       const exists = state.frequentPassengers.find(p => p.numDoc === pax.numDoc);
       if (!exists) {
@@ -1894,7 +1894,6 @@ if ($('pax-frecuente')?.checked) {
         }
         showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
       }
-    }
     }
 
     // Enviar notificación por correo (no bloquea la UI)
