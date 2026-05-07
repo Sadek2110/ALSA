@@ -141,6 +141,26 @@ function isValidDate(v) {
 }
 
 // ============================================================
+// HEALTH CHECK
+// ============================================================
+app.get('/api/health', async (_req, res) => {
+  try {
+    const { rows } = await db.query('SELECT NOW() as now');
+    ok(res, {
+      status: 'ok',
+      database: 'connected',
+      timestamp: rows[0].now,
+    });
+  } catch (err) {
+    fail(res, {
+      status: 'error',
+      database: 'disconnected',
+      error: err.message,
+    }, 503);
+  }
+});
+
+// ============================================================
 // DATA & CRUD — PostgreSQL
 // ============================================================
 app.get('/api/data', async (_req, res) => {
@@ -463,12 +483,12 @@ if (require.main === module) {
       console.error('[DB] Failed to initialize database:', err.message);
       process.exit(1);
     }
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`\n  ╔══════════════════════════════════════════╗`);
       console.log(`  ║   ALSA — Rutas y Horarios                ║`);
       console.log(`  ║   Node.js + Express + PostgreSQL         ║`);
       console.log(`  ╠══════════════════════════════════════════╣`);
-      console.log(`  ║   http://localhost:${PORT}                   ║`);
+      console.log(`  ║   http://0.0.0.0:${PORT}                   ║`);
       console.log(`  ╚══════════════════════════════════════════╝\n`);
     });
   })();
