@@ -1424,10 +1424,11 @@ async function addPassengerAction(e) {
     try {
       const saved = await api('POST', '/frequent-passengers', newFp);
       state.frequentPassengers.push(saved);
+      showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
     } catch(e) {
-      state.frequentPassengers.push({ id: Date.now(), ...newFp });
+      console.error('[FREQUENT_PASSENGER] Error:', e.message);
+      showToast('warning','Pasajero no guardado','No se pudo añadir a pasajeros frecuentes.');
     }
-    showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
   }
 
   state.bookingWizard.passengers.push(pax);
@@ -2017,8 +2018,8 @@ async function doFinalizeBooking(e) {
         const saved = await api('POST', '/bookings', bookingData);
         return saved;
       } catch(err) {
-        console.error('Error guardando reserva:', err);
-        return { id: Date.now() + Math.floor(Math.random() * 1000), ...bookingData };
+        console.error('[BOOKING] Error guardando reserva:', err.message);
+        throw err;
       }
     });
     const savedBookings = await Promise.all(bookingPromises);
@@ -2032,10 +2033,11 @@ async function doFinalizeBooking(e) {
         try {
           const saved = await api('POST', '/frequent-passengers', { nombre: pax.nombre, apellido1: pax.apellido1, apellido2: pax.apellido2 || '', email: pax.email, telefono: pax.telefono, fnac: pax.fnac, nacionalidad: pax.nacionalidad, tipoDoc: pax.tipoDoc, numDoc: pax.numDoc, expDoc: pax.expDoc });
           state.frequentPassengers.push(saved);
+          showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
         } catch(e) {
-          state.frequentPassengers.push({ ...pax, id: Date.now() });
+          console.error('[FREQUENT_PASSENGER] Error:', e.message);
+          showToast('warning','Pasajero no guardado','No se pudo añadir a pasajeros frecuentes.');
         }
-        showToast('success','Pasajero guardado','Se ha añadido a tus pasajeros frecuentes.');
       }
     }
 
@@ -2729,12 +2731,12 @@ async function doAddInvoice(e) {
   try {
     const saved = await api('POST', '/invoices', newInvoice);
     state.invoices.push(saved);
+    navigateTo('facturas');
+    showToast('success','Factura registrada',`${num} — €${imp} añadida correctamente.`);
   } catch(err) {
-    state.invoices.push({ id: Date.now(), ...newInvoice });
+    showToast('error','Error', 'No se pudo guardar la factura: ' + err.message);
   }
   state._pendingInvoiceFile = null;
-  navigateTo('facturas');
-  showToast('success','Factura registrada',`${num} — €${imp} añadida correctamente.`);
 }
 
 async function deleteInvoice(id) {
@@ -2782,11 +2784,11 @@ async function doAddMember(e) {
   try {
     const saved = await api('POST', '/members', newMember);
     state.members.push(saved);
+    navigateTo('miembros');
+    showToast('success','Miembro registrado',`${nom} ${ape} ha sido añadido correctamente.`);
   } catch(err) {
-    state.members.push({ id: Date.now(), ...newMember });
+    showToast('error','Error', 'No se pudo guardar el miembro: ' + err.message);
   }
-  navigateTo('miembros');
-  showToast('success','Miembro registrado',`${nom} ${ape} ha sido añadido correctamente.`);
 }
 
 async function deleteMember(id) {
@@ -2828,11 +2830,11 @@ async function doAddVehicle(e) {
   try {
     const saved = await api('POST', '/vehicles', newVeh);
     state.vehicles.push(saved);
+    navigateTo('vehiculos');
+    showToast('success','Vehículo añadido',`${mar} ${mod} registrado en la flota.`);
   } catch(err) {
-    state.vehicles.push({ id: Date.now(), ...newVeh });
+    showToast('error','Error', 'No se pudo guardar el vehículo: ' + err.message);
   }
-  navigateTo('vehiculos');
-  showToast('success','Vehículo añadido',`${mar} ${mod} registrado en la flota.`);
 }
 
 async function deleteVehicle(id) {
@@ -2854,13 +2856,17 @@ async function doInviteAdmin(e) {
   if (!usuario||usuario.length<3) { fieldErr('e-ia-user','ia-user','Mínimo 3 caracteres'); ok=false; } else fieldOk('e-ia-user','ia-user');
   if (!ok) return;
 
-  const newId = Date.now();
-  const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-  state.pendingAdmin = { email, usuario, id: newId, token };
-  const newAdmin = { id: newId, nombre: usuario, email, usuario, activo: false,
-                      fecha: new Date().toISOString().split('T')[0], acciones: 'Invitación enviada' };
-  state.admins.push(newAdmin);
-  try { await api('POST', '/administrators', newAdmin); } catch(e) { console.error('Error guardando admin:', e); }
+  try {
+    const saved = await api('POST', '/administrators', { nombre: usuario, email, usuario, activo: false, fecha: new Date().toISOString().split('T')[0], acciones: 'Invitación enviada' });
+    const newAdmin = saved;
+    state.admins.push(newAdmin);
+    const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    state.pendingAdmin = { email, usuario, id: newAdmin.id, token };
+  } catch(e) {
+    console.error('[ADMIN] Error guardando admin:', e.message);
+    showToast('error','Error', 'No se pudo crear el administrador: ' + e.message);
+    return;
+  }
 
   $('ia-email').value = '';
   $('ia-user').value  = '';
