@@ -152,6 +152,9 @@ async function init() {
     );
   `);
 
+  // ── Migraciones ──
+  await query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS groupid TEXT');
+
   const { rows } = await query('SELECT COUNT(*) as cnt FROM users');
   if (parseInt(rows[0].cnt, 10) === 0) {
     console.log('[DB] Seeding initial admin user...');
