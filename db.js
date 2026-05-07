@@ -263,4 +263,4 @@ async function deleteRow(table, id) {
   return rowCount;
 }
 
-module.exports = { init, query, getAll, getById, insertRow, updateRow, deleteRow };
+module.exports = { init, query, getAll, getById, insertRow, updateRow, deleteRow, toCamel, toDbColumns };

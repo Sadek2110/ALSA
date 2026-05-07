@@ -629,9 +629,7 @@ function initHomeRoutes() {}
 function renderWizStepBar(current, withVehicle) {
   const bar = $('wiz-step-bar');
   if (!bar) return;
-  const steps = withVehicle
-    ? ['Búsqueda','Disponibilidad','Pasajero','Vehículo','Confirmar']
-    : ['Búsqueda','Disponibilidad','Pasajero','Confirmar'];
+  const steps = ['Búsqueda','Disponibilidad','Pasajero','Vehículo','Confirmar'];
   bar.innerHTML = `<div class="booking-steps">${steps.map((label, i) => {
     const n = i + 1;
     let cls = 'bstep-pending', numHtml = String(n);
@@ -702,15 +700,7 @@ function showWizStep1() {
         </div>
       </div>
 
-      <div style="margin-bottom:22px">
-        <span class="form-sec-label">Opciones</span>
-        <div class="chips-row">
-          <div class="chip ${sp.withVehicle?'active':''}" id="chip-vehiculo" onclick="this.classList.toggle('active')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            Vehículo
-          </div>
-        </div>
-      </div>
+      
       <button class="btn btn-primary" style="width:auto;padding:11px 32px;font-size:1rem" onclick="doSearchSailings()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Buscar disponibilidad
@@ -1010,7 +1000,7 @@ async function doSearchSailings() {
   const _tripText   = document.querySelector('#home-seg .seg-btn.active')?.textContent.trim() || 'Ida';
   const _tripMap    = { 'Ida': 'ida', 'Vuelta': 'vuelta', 'Ida y vuelta': 'idayvuelta' };
   const tripType    = _tripMap[_tripText] || 'ida';
-  const withVehicle = !!$('chip-vehiculo')?.classList.contains('active');
+  const withVehicle = true;
   const isRoundTrip = tripType === 'idayvuelta';
   let isOk = true;
 
@@ -1124,7 +1114,10 @@ function showWizStep2() {
   const content = $('wiz-content');
   if (!content) return;
   const { origenNm, destinoNm, fechaIda } = wz.searchParams;
-  const combined = state.searchResults;
+  const combined = state.searchResults.sort((a, b) => {
+    const ta = a.departureTime || '', tb = b.departureTime || '';
+    return ta.localeCompare(tb);
+  });
   content.innerHTML = `<div class="card">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="showWizStep1()">
@@ -1213,8 +1206,7 @@ function showWizStep3() {
           <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:white;border:1px solid var(--gray-200);border-radius:var(--radius)">
             <div>
               <div style="font-weight:600;font-size:0.875rem">
-                ${esc(p.nombre)} ${esc(p.apellido1)}
-                ${p.isDriver ? '<span style="display:inline-block;margin-left:6px;padding:1px 8px;background:#dbeafe;color:#1d4ed8;border-radius:10px;font-size:0.65rem;font-weight:700;vertical-align:middle">🚗 Conductor</span>' : ''}
+                ${idx + 1}. ${esc(p.nombre)} ${esc(p.apellido1)}
               </div>
               <div style="font-size:0.75rem;color:var(--gray-500)">${esc(p.tipoDoc)}: ${esc(p.numDoc)} · ${esc(p.email)}</div>
             </div>
@@ -1225,6 +1217,11 @@ function showWizStep3() {
         `).join('')}
       </div>
     </div>
+    ${wz.vehicles?.length > 0 ? `
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#dbeafe;border:1px solid #bfdbfe;border-radius:var(--radius);margin-bottom:20px;font-size:0.875rem;color:#1d4ed8">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <span><strong>${wz.vehicles.length} vehículo(s)</strong> añadido(s) a esta reserva</span>
+    </div>` : ''}
   ` : '';
 
   content.innerHTML = `
@@ -1235,8 +1232,10 @@ function showWizStep3() {
           Volver
         </button>
         <div>
-          <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Registro de pasajeros</div>
-          <div style="font-size:0.8125rem;color:var(--gray-400)">Añade los datos de todos los viajeros</div>
+          <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Paso 3: Añadir pasajeros</div>
+          <div style="font-size:0.8125rem;color:var(--gray-400)">
+            ${wz.passengers.length === 0 ? 'Rellena los datos del primer pasajero' : `Ya tienes ${wz.passengers.length} pasajero(s) · Puedes añadir más o continuar al resumen`}
+          </div>
         </div>
       </div>
 
@@ -1337,24 +1336,33 @@ function showWizStep3() {
           </label>
         </div>
 
-        ${wz.withVehicle ? `
-        <div style="margin:0 0 20px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius)">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--gray-700)">
-            <input type="checkbox" id="pax-conductor" class="pax-is-driver" style="width:18px;height:18px;accent-color:var(--primary)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            Marcar como conductor
-          </label>
-        </div>` : ''}
+        <div id="vehicle-section" style="display:none;margin:0 0 20px;padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.875rem;color:var(--gray-700)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              Datos del vehículo
+            </div>
+            <button type="button" class="btn-icon-danger" onclick="hideVehicleSection()" title="Cerrar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div id="vehicle-form-container"></div>
+        </div>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--gray-100)">
           <button type="submit" class="btn btn-secondary" style="width:auto;padding:11px 24px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Añadir pasajero
           </button>
-          
+
+          <button type="button" class="btn btn-outline" style="width:auto;padding:11px 20px" onclick="showVehicleForm()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Añadir vehículo
+          </button>
+
           ${wz.passengers.length > 0 ? `
           <button type="button" class="btn btn-primary" style="width:auto;margin-left:auto;padding:11px 32px" onclick="finalizePassengerStep()">
-            Continuar: ${wz.withVehicle ? 'Vehículo' : 'Confirmar'} →
+            Continuar al resumen →
           </button>` : ''}
         </div>
       </form>
@@ -1377,6 +1385,40 @@ function checkFrequentPassengerDuplicate(value) {
   }
   const numdocInp = $('pax-numdoc');
   if (numdocInp) numdocInp.classList.toggle('is-frequent-dup', exists);
+}
+
+function showVehicleForm() {
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  if (!Array.isArray(wz.vehicles) || wz.vehicles.length === 0) {
+    wz.vehicles = [emptyVehicleEntry()];
+  }
+  const section = $('vehicle-section');
+  const container = $('vehicle-form-container');
+  if (!section || !container) return;
+  const blocks = wz.vehicles.map((_, idx) => renderVehicleBlock(idx)).join('');
+  container.innerHTML = `<div id="vehicle-blocks-wrapper">${blocks}</div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button type="button" class="btn btn-outline btn-sm" onclick="addAnotherVehicleBlock()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Añadir otro vehículo
+      </button>
+    </div>`;
+  section.style.display = 'block';
+  updateCounterBtns();
+}
+
+function addAnotherVehicleBlock() {
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  persistAllVehicleBlocks();
+  wz.vehicles.push(emptyVehicleEntry());
+  showVehicleForm();
+}
+
+function hideVehicleSection() {
+  const section = $('vehicle-section');
+  if (section) section.style.display = 'none';
 }
 
 function removeWizPassenger(idx) {
@@ -1411,11 +1453,17 @@ async function addPassengerAction(e) {
   if (!expdoc)           { fieldErr('e-pax-expdoc','pax-expdoc','Requerido'); ok=false; } else fieldOk('e-pax-expdoc','pax-expdoc');
   if (!ok) return;
 
+  const wz = state.bookingWizard;
+  if (wz.passengers.some(p => p.numDoc === numdoc)) {
+    showToast('warning','Pasajero duplicado','Ya existe un pasajero con este número de documento en la reserva.');
+    fieldErr('e-pax-numdoc','pax-numdoc','Ya existe en esta reserva');
+    return;
+  }
+
   const pax = {
     nombre, apellido1: ape1, apellido2: val('pax-ape2').trim(),
     email, telefono: `${val('pax-pre')} ${tel}`,
     fnac, nacionalidad: nac, tipoDoc: tipdoc, numDoc: numdoc, expDoc: expdoc,
-    isDriver: $('pax-conductor')?.checked || false,
   };
 
   // Si se marcó "guardar como frecuente", hacerlo ahora
@@ -1442,12 +1490,8 @@ function finalizePassengerStep() {
     showToast('warning','Sin pasajeros','Añade al menos un pasajero antes de continuar.');
     return;
   }
-  if (wz.withVehicle && !wz.passengers.some(p => p.isDriver)) {
-    showToast('warning','Conductor requerido','Debes marcar al menos un pasajero como conductor del vehículo.');
-    return;
-  }
-  if (wz.withVehicle) showWizStep4();
-  else showWizStep5();
+  persistAllVehicleBlocks();
+  showWizStep4();
 }
 
 function selectFrequentPax(idx) {
@@ -1716,7 +1760,7 @@ function renderVehicleBlock(idx) {
       <label class="form-label">Conductor <span style="color:var(--danger)">*</span></label>
       <select id="veh-driver-${idx}" class="form-input">
         <option value="">— Seleccionar conductor —</option>
-        ${wz.passengers.map((p, pidx) => p.isDriver ? `<option value="${pidx}" ${v.driverPassengerIndex === pidx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}</option>` : '').join('')}
+        ${wz.passengers.map((p, pidx) => `<option value="${pidx}" ${v.driverPassengerIndex === pidx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}</option>`).join('')}
       </select>
       <span class="error-msg" id="e-veh-driver-${idx}"></span>
     </div>
@@ -2139,9 +2183,12 @@ function renderViajes() {
                     <div style="font-size:0.75rem;color:var(--gray-400)">${esc(b.email||'')}</div>
                   </td>
                   <td>
-                    <span class="badge ${b.localizador ? 'badge-success' : 'badge-warning'}" id="estado-badge-${b.id}">
-                      ${b.localizador ? 'Activo' : 'Pendiente'}
-                    </span>
+                    ${b.estado === 'cancelado'
+                      ? `<span class="badge badge-danger" id="estado-badge-${b.id}">Cancelado</span>`
+                      : `<span class="badge ${b.localizador ? 'badge-success' : 'badge-warning'}" id="estado-badge-${b.id}">
+                          ${b.localizador ? 'Activo' : 'Pendiente'}
+                        </span>`
+                    }
                   </td>
                   <td onclick="event.stopPropagation()">
                     <div style="display:flex;align-items:center;gap:6px">
@@ -2157,6 +2204,10 @@ function renderViajes() {
                   </td>
                   <td onclick="event.stopPropagation()">
                     <div class="tbl-actions">
+                      ${b.localizador && b.estado !== 'cancelado' ? `
+                      <button class="btn btn-warning btn-sm" onclick="cancelBooking(${b.id})" title="Cancelar">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                      </button>` : ''}
                       <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})" title="Editar">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
@@ -2183,7 +2234,10 @@ function renderViajes() {
               <div class="bk-card-route">${esc(b.origin||'')} → ${esc(b.destination||'')}</div>
               <div style="display:flex;align-items:center;gap:6px">
                 ${b.id===newId ? '<span class="badge-new">Nuevo</span>' : ''}
-                <span class="badge ${b.localizador ? 'badge-success' : 'badge-warning'}">${b.localizador ? 'Activo' : 'Pendiente'}</span>
+                ${b.estado === 'cancelado'
+                  ? `<span class="badge badge-danger">Cancelado</span>`
+                  : `<span class="badge ${b.localizador ? 'badge-success' : 'badge-warning'}">${b.localizador ? 'Activo' : 'Pendiente'}</span>`
+                }
               </div>
             </div>
             <div class="bk-card-body">
@@ -2214,6 +2268,11 @@ function renderViajes() {
               </div>
             </div>
             <div class="bk-card-foot" onclick="event.stopPropagation()">
+              ${b.localizador && b.estado !== 'cancelado' ? `
+              <button class="btn btn-warning btn-sm" onclick="cancelBooking(${b.id})">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Cancelar
+              </button>` : ''}
               <button class="btn btn-outline btn-sm" onclick="editBooking(${b.id})">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Editar
@@ -2700,6 +2759,17 @@ async function deleteBooking(id) {
   await api('DELETE', `/bookings/${id}`).catch(e => console.error('Error eliminando reserva:', e));
   navigateTo('viajes');
   showToast('success','Reserva eliminada','La reserva ha sido eliminada del sistema.');
+}
+
+function cancelBooking(id) {
+  if (!confirm('¿Cancelar esta reserva? Esta acción puede revertirse.')) return;
+  const idx = state.bookings.findIndex(bk => bk.id === id);
+  if (idx !== -1) {
+    state.bookings[idx] = { ...state.bookings[idx], estado: 'cancelado' };
+    api('PUT', `/bookings/${id}`, { estado: 'cancelado' }).catch(e => console.error('Error cancelando reserva:', e));
+    renderViajes();
+    showToast('success','Reserva cancelada',`La reserva #${id} ha sido cancelada.`);
+  }
 }
 
 /* --- FACTURAS --- */
