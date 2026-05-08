@@ -1420,6 +1420,8 @@ function checkFrequentPassengerDuplicate(value) {
 function showVehicleForm(passengerIndex) {
   const wz = state.bookingWizard;
   if (!wz) return;
+  // Persistir datos previos del DOM antes de re-renderizar
+  persistAllVehicleBlocks();
   if (!Array.isArray(wz.vehicles) || wz.vehicles.length === 0) {
     wz.vehicles = [emptyVehicleEntry()];
   }
@@ -1464,6 +1466,7 @@ function addAnotherVehicleBlock() {
 }
 
 function hideVehicleSection() {
+  persistAllVehicleBlocks();
   const section = $('vehicle-section');
   if (section) section.style.display = 'none';
 }
@@ -1488,18 +1491,13 @@ function removeWizPassenger(idx) {
 function addVehicleToPassenger(passengerIndex) {
   const wz = state.bookingWizard;
   if (!wz) return;
+  // Persistir cualquier dato de vehículo que esté en el DOM
+  persistAllVehicleBlocks();
   if (!Array.isArray(wz.vehicles)) wz.vehicles = [];
-  // Si no hay vehículos aún, crear el primero para este pasajero
-  if (wz.vehicles.length === 0) {
-    const newEntry = emptyVehicleEntry();
-    newEntry.driverPassengerIndex = passengerIndex;
-    wz.vehicles.push(newEntry);
-  } else {
-    // Si ya hay vehículos, crear uno nuevo específicamente para este pasajero
-    const newEntry = emptyVehicleEntry();
-    newEntry.driverPassengerIndex = passengerIndex;
-    wz.vehicles.push(newEntry);
-  }
+  // Crear un nuevo vehículo para este pasajero (un conductor = un vehículo)
+  const newEntry = emptyVehicleEntry();
+  newEntry.driverPassengerIndex = passengerIndex;
+  wz.vehicles.push(newEntry);
   showVehicleForm(passengerIndex);
 }
 
@@ -1599,6 +1597,9 @@ async function addPassengerAction(e) {
       showToast('warning','Pasajero no guardado','No se pudo añadir a pasajeros frecuentes.');
     }
   }
+
+  // Persistir vehículos que estén en el formulario antes de recargar la página
+  persistAllVehicleBlocks();
 
   state.bookingWizard.passengers.push(pax);
   showToast('success','Pasajero añadido',`${nombre} ha sido añadido al viaje.`);
