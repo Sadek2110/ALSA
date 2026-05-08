@@ -1886,6 +1886,16 @@ function readVehicleBlock(idx) {
   const wz = state.bookingWizard;
   if (!wz?.vehicles?.[idx]) return;
   const v = wz.vehicles[idx];
+  
+  // Si el formulario de vehículo no está visible en el DOM, no leer
+  // (evita sobrescribir datos ya persistidos cuando showWizStep3 reconstruye la página)
+  const section = $('vehicle-section');
+  if (!section || section.style.display === 'none') return;
+
+  // Verificar que el bloque existe en el DOM (se renderizó)
+  const blockEl = document.querySelector(`.vehicle-block[data-idx="${idx}"]`);
+  if (!blockEl) return;
+  
   const modeEl = document.querySelector(`input[name="veh-mode-${idx}"]:checked`);
   if (modeEl) v._mode = modeEl.value;
   if (v._mode === 'registrado') {
@@ -1899,7 +1909,10 @@ function readVehicleBlock(idx) {
     v.alto      = val(`veh-alt-${idx}`) || '';
   }
   const driverVal = val(`veh-driver-${idx}`);
-  v.driverPassengerIndex = driverVal !== '' ? parseInt(driverVal, 10) : undefined;
+  if (driverVal !== '') {
+    v.driverPassengerIndex = parseInt(driverVal, 10);
+  }
+  // Si driverVal es vacío, mantener el valor existente (no sobrescribir)
 }
 
 function persistAllVehicleBlocks() {
