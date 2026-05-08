@@ -1217,13 +1217,17 @@ function showWizStep3() {
               </div>
               <div style="font-size:0.75rem;color:var(--gray-500)">${esc(p.tipoDoc)}: ${esc(p.numDoc)} · ${esc(p.email)}</div>
               ${paxVehicles.length > 0 ? `
-              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
                 ${paxVehicles.map(v => `
                   <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--gray-100);border-radius:10px;font-size:0.6875rem;color:var(--gray-600)">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                     ${esc(v.marca||'')} ${esc(v.modelo||'')}
                   </span>
                 `).join('')}
+                <button type="button" class="btn btn-outline btn-sm" style="padding:2px 10px;font-size:0.6875rem;width:auto" onclick="event.stopPropagation();addVehicleToPassenger(${idx})">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  + Vehículo
+                </button>
               </div>` : `
               <button type="button" class="btn btn-outline btn-sm" style="margin-top:6px;padding:2px 10px;font-size:0.6875rem;width:auto" onclick="event.stopPropagation();addVehicleToPassenger(${idx})">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -1382,7 +1386,7 @@ function showWizStep3() {
             Añadir pasajero
           </button>
 
-          <button type="button" class="btn btn-outline" style="width:auto;padding:11px 20px" onclick="showVehicleForm()">
+          <button type="button" class="btn btn-outline" style="width:auto;padding:11px 20px" onclick="addVehicleForNewPassenger()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             Añadir vehículo
           </button>
@@ -1417,17 +1421,17 @@ function checkFrequentPassengerDuplicate(value) {
 function showVehicleForm(passengerIndex) {
   const wz = state.bookingWizard;
   if (!wz) return;
-  // Persistir datos previos del DOM antes de re-renderizar
   persistAllVehicleBlocks();
   if (!Array.isArray(wz.vehicles) || wz.vehicles.length === 0) {
-    wz.vehicles = [emptyVehicleEntry()];
-  }
-  // Auto-asignar conductor: solo a vehículos que aún no tengan conductor asignado
-  const paxIdx = typeof passengerIndex === 'number' ? passengerIndex : (wz.passengers.length > 0 ? wz.passengers.length - 1 : -1);
-  if (typeof paxIdx === 'number') {
+    const newEntry = emptyVehicleEntry();
+    if (typeof passengerIndex === 'number') {
+      newEntry.driverPassengerIndex = passengerIndex;
+    }
+    wz.vehicles = [newEntry];
+  } else if (typeof passengerIndex === 'number') {
     wz.vehicles.forEach(v => {
-      if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex)) {
-        v.driverPassengerIndex = paxIdx;
+      if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex) || v.driverPassengerIndex === -1) {
+        v.driverPassengerIndex = passengerIndex;
       }
     });
   }
@@ -1439,18 +1443,23 @@ function showVehicleForm(passengerIndex) {
   section.style.display = 'block';
 }
 
+function addVehicleForNewPassenger() {
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  persistAllVehicleBlocks();
+  const newEntry = emptyVehicleEntry();
+  newEntry.driverPassengerIndex = -1;
+  if (!Array.isArray(wz.vehicles)) wz.vehicles = [];
+  wz.vehicles.push(newEntry);
+  showVehicleForm();
+}
+
 function addAnotherVehicleBlock() {
   const wz = state.bookingWizard;
   if (!wz) return;
   persistAllVehicleBlocks();
   const newEntry = emptyVehicleEntry();
-  // Heredar el conductor del último vehículo añadido
-  if (wz.vehicles.length > 0) {
-    const lastVeh = wz.vehicles[wz.vehicles.length - 1];
-    if (typeof lastVeh.driverPassengerIndex === 'number') {
-      newEntry.driverPassengerIndex = lastVeh.driverPassengerIndex;
-    }
-  }
+  newEntry.driverPassengerIndex = -1;
   wz.vehicles.push(newEntry);
   showVehicleForm();
 }
@@ -1481,16 +1490,8 @@ function removeWizPassenger(idx) {
 function addVehicleToPassenger(passengerIndex) {
   const wz = state.bookingWizard;
   if (!wz) return;
-  // Persistir cualquier dato de vehículo que esté en el DOM
   persistAllVehicleBlocks();
   if (!Array.isArray(wz.vehicles)) wz.vehicles = [];
-  // Verificar que este pasajero no tenga ya un vehículo asignado
-  const alreadyHasVehicle = wz.vehicles.some(v => v.driverPassengerIndex === passengerIndex);
-  if (alreadyHasVehicle) {
-    showToast('warning', 'Vehículo ya asignado', 'Este pasajero ya tiene un vehículo asignado. Un conductor no puede tener dos vehículos.');
-    return;
-  }
-  // Crear un nuevo vehículo para este pasajero (un conductor = un vehículo)
   const newEntry = emptyVehicleEntry();
   newEntry.driverPassengerIndex = passengerIndex;
   wz.vehicles.push(newEntry);
@@ -1619,6 +1620,21 @@ function finalizePassengerStep() {
     return;
   }
   persistAllVehicleBlocks();
+  if (wz.vehicles && wz.vehicles.length > 0) {
+    const unassigned = wz.vehicles.filter(v => typeof v.driverPassengerIndex !== 'number' || v.driverPassengerIndex < 0 || v.driverPassengerIndex >= wz.passengers.length);
+    if (unassigned.length > 0) {
+      showToast('warning','Conductor sin asignar','Todos los vehículos deben tener un conductor asignado. Selecciona un conductor para cada vehículo.');
+      showVehicleForm();
+      return;
+    }
+    const driverIndices = wz.vehicles.map(v => v.driverPassengerIndex);
+    const duplicates = driverIndices.filter((idx, i) => driverIndices.indexOf(idx) !== i);
+    if (duplicates.length > 0) {
+      showToast('warning','Conductor duplicado','Cada vehículo debe tener un conductor diferente. Un pasajero no puede conducir dos vehículos.');
+      showVehicleForm();
+      return;
+    }
+  }
   showWizStep5();
 }
 
@@ -1874,7 +1890,14 @@ function renderVehicleBlock(idx) {
       </div>
     </div>
 
-    <input type="hidden" id="veh-driver-${idx}" value="${typeof v.driverPassengerIndex === 'number' ? v.driverPassengerIndex : ''}">
+    <div style="margin-top:12px">
+      <label class="form-label">Conductor del vehículo <span style="color:var(--danger)">*</span></label>
+      <select id="veh-driver-${idx}" class="form-input" onchange="onDriverChange(${idx},this.value)">
+        <option value="-1" ${typeof v.driverPassengerIndex !== 'number' || v.driverPassengerIndex === -1 ? 'selected' : ''}>— Seleccionar conductor —</option>
+        ${wz.passengers.map((p, pIdx) => `<option value="${pIdx}" ${typeof v.driverPassengerIndex === 'number' && v.driverPassengerIndex === pIdx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}${p.apellido2 ? ' ' + esc(p.apellido2) : ''}</option>`).join('')}
+      </select>
+      <span class="error-msg" id="e-veh-driver-${idx}"></span>
+    </div>
   </div>`;
 }
 
@@ -1904,11 +1927,11 @@ function readVehicleBlock(idx) {
     v.largo     = val(`veh-lar-${idx}`) || '';
     v.alto      = val(`veh-alt-${idx}`) || '';
   }
-  const driverVal = val(`veh-driver-${idx}`);
-  if (driverVal !== '') {
-    v.driverPassengerIndex = parseInt(driverVal, 10);
+  const driverEl = $(`veh-driver-${idx}`);
+  if (driverEl) {
+    const driverVal = driverEl.value;
+    v.driverPassengerIndex = driverVal !== '' ? parseInt(driverVal, 10) : -1;
   }
-  // Si driverVal es vacío, mantener el valor existente (no sobrescribir)
 }
 
 function persistAllVehicleBlocks() {
@@ -1937,6 +1960,12 @@ function onVehicleModeChange(idx, mode) {
     const h = $(`veh-selected-id-${idx}`); if (h) h.value = '';
     wz.vehicles[idx].registeredId = '';
   }
+}
+
+function onDriverChange(idx, value) {
+  const wz = state.bookingWizard;
+  if (!wz?.vehicles?.[idx]) return;
+  wz.vehicles[idx].driverPassengerIndex = parseInt(value, 10);
 }
 
 function removeVehicleBlock(idx) {
@@ -1970,7 +1999,7 @@ function wizStep4Submit(e) {
       if (isNaN(lar)||lar<=0) { fieldErr(`e-veh-lar-${idx}`, `veh-lar-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-lar-${idx}`, `veh-lar-${idx}`);
       if (isNaN(alt)||alt<=0) { fieldErr(`e-veh-alt-${idx}`, `veh-alt-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-alt-${idx}`, `veh-alt-${idx}`);
     }
-    if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex)) {
+    if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex) || v.driverPassengerIndex < 0) {
       fieldErr(`e-veh-driver-${idx}`, `veh-driver-${idx}`, 'Selecciona un conductor');
       allOk = false;
     } else {
