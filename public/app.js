@@ -1390,13 +1390,24 @@ function showWizStep3() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             Añadir vehículo
           </button>
-
-          ${wz.passengers.length > 0 ? `
-          <button type="button" class="btn btn-primary" style="width:auto;margin-left:auto;padding:11px 32px" onclick="finalizePassengerStep()">
-            Continuar al resumen →
-          </button>` : ''}
         </div>
       </form>
+
+      ${wz.passengers.length > 0 ? `
+      <div style="margin-top:28px;padding:20px 24px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:#10b981;color:white;flex-shrink:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:0.9375rem;color:#065f46">${wz.passengers.length} pasajero${wz.passengers.length === 1 ? '' : 's'} listo${wz.passengers.length === 1 ? '' : 's'}</div>
+            <div style="font-size:0.8125rem;color:#047857">Revisa los datos y continúa al resumen cuando estés listo</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" style="width:auto;padding:12px 32px;font-size:1rem" onclick="finalizePassengerStep()">
+          Continuar al resumen →
+        </button>
+      </div>` : ''}
     </div>`;
 }
 
