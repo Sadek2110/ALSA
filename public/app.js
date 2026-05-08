@@ -1994,6 +1994,12 @@ function showWizStep5() {
 
   const nacMap = { ES:'Española',FR:'Francesa',IT:'Italiana',PT:'Portuguesa',UK:'Británica',DE:'Alemana',MA:'Marroquí',OTHER:'Otra' };
 
+  // Marcar pasajeros que son conductores (tienen vehículo asignado)
+  const vehiclesList = Array.isArray(wz.vehicles) ? wz.vehicles : [];
+  wz.passengers.forEach((p, idx) => {
+    p.isDriver = vehiclesList.some(v => v.driverPassengerIndex === idx);
+  });
+
   content.innerHTML = `
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
@@ -2143,7 +2149,8 @@ async function doFinalizeBooking(e) {
 
   try {
     const groupId = wz.passengers.length > 1 ? 'G-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5) : null;
-    const bookingPromises = wz.passengers.map(async (pax) => {
+    const bookingPromises = wz.passengers.map(async (pax, paxIdx) => {
+      const myVehicle = vehiclesList.find(v => v.driverPassengerIndex === paxIdx) || null;
       const bookingData = {
         tripType: wz.tripType,
         origin: wz.origin,
@@ -2157,7 +2164,7 @@ async function doFinalizeBooking(e) {
         estado: 'Pendiente',
         passengerName: `${pax.nombre} ${pax.apellido1}`.trim(),
         email: pax.email || '',
-        vehiclePlate: vehiclesList.length > 0 ? `${vehiclesList[0].marca} ${vehiclesList[0].modelo}` : null,
+        vehiclePlate: myVehicle ? `${myVehicle.marca} ${myVehicle.modelo}` : null,
         paxNombre: pax.nombre || '',
         paxApellido1: pax.apellido1 || '',
         paxApellido2: pax.apellido2 || '',
@@ -2166,12 +2173,12 @@ async function doFinalizeBooking(e) {
         paxTipoDoc: pax.tipoDoc || '',
         paxNumDoc: pax.numDoc || '',
         paxExpDoc: pax.expDoc || '',
-        vehMarca: vehiclesList[0] ? vehiclesList[0].marca : '',
-        vehModelo: vehiclesList[0] ? vehiclesList[0].modelo : '',
-        vehMatricula: vehiclesList[0] ? (vehiclesList[0].matricula || '') : '',
-        vehLargo: vehiclesList[0] ? (parseFloat(vehiclesList[0].largo) || 0) : 0,
-        vehAncho: vehiclesList[0] ? (parseFloat(vehiclesList[0].ancho) || 0) : 0,
-        vehAlto: vehiclesList[0] ? (parseFloat(vehiclesList[0].alto) || 0) : 0,
+        vehMarca: myVehicle ? myVehicle.marca : '',
+        vehModelo: myVehicle ? myVehicle.modelo : '',
+        vehMatricula: myVehicle ? (myVehicle.matricula || '') : '',
+        vehLargo: myVehicle ? (parseFloat(myVehicle.largo) || 0) : 0,
+        vehAncho: myVehicle ? (parseFloat(myVehicle.ancho) || 0) : 0,
+        vehAlto: myVehicle ? (parseFloat(myVehicle.alto) || 0) : 0,
         vehicleCount: vehiclesList.length,
         groupId: groupId,
       };
