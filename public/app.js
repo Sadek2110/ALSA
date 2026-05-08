@@ -626,10 +626,10 @@ function initReservaSection() {
 function initHomeRoutes() {}
 
 // ── Barra de pasos ────────────────────────────────────────────
-function renderWizStepBar(current, withVehicle) {
+function renderWizStepBar(current) {
   const bar = $('wiz-step-bar');
   if (!bar) return;
-  const steps = ['Búsqueda','Disponibilidad','Pasajero','Vehículo','Confirmar'];
+  const steps = ['Búsqueda','Disponibilidad','Pasajeros','Confirmar'];
   bar.innerHTML = `<div class="booking-steps">${steps.map((label, i) => {
     const n = i + 1;
     let cls = 'bstep-pending', numHtml = String(n);
@@ -642,7 +642,7 @@ function renderWizStepBar(current, withVehicle) {
 // ── Paso 1: Búsqueda ──────────────────────────────────────────
 function showWizStep1() {
   const sp = state.bookingWizard?.searchParams || {};
-  renderWizStepBar(1, sp.withVehicle || false);
+  renderWizStepBar(1);
   const content = $('wiz-content');
   if (!content) return;
 
@@ -1000,7 +1000,6 @@ async function doSearchSailings() {
   const _tripText   = document.querySelector('#home-seg .seg-btn.active')?.textContent.trim() || 'Ida';
   const _tripMap    = { 'Ida': 'ida', 'Vuelta': 'vuelta', 'Ida y vuelta': 'idayvuelta' };
   const tripType    = _tripMap[_tripText] || 'ida';
-  const withVehicle = true;
   const isRoundTrip = tripType === 'idayvuelta';
   let isOk = true;
 
@@ -1028,12 +1027,12 @@ async function doSearchSailings() {
 
   if (!isOk) return;
 
-  const searchParams = { origenNm, origenId, destinoNm, destinoId, fechaIda, fechaVuelta, tripType, withVehicle };
+  const searchParams = { origenNm, origenId, destinoNm, destinoId, fechaIda, fechaVuelta, tripType };
   state.bookingWizard = {
     tripType, origin: origenNm, originId: origenId,
     destination: destinoNm, destinationId: destinoId,
     dateIda: fechaIda, dateVuelta: fechaVuelta || null,
-    withVehicle, selectedSailing: null, passengers: [], vehicle: null, saveAsFrequent: false,
+    selectedSailing: null, passengers: [], vehicles: [], saveAsFrequent: false,
     searchParams,
   };
 
@@ -1061,7 +1060,10 @@ async function doSearchSailings() {
       departureDate: t.date || t.departureDate || fechaIda,
       departureTime: t.departureTime || t.departure_time || t.time || '—',
       raw:           t.raw || t,
-    }));
+    })).sort((a, b) => {
+      const ta = a.departureTime || '', tb = b.departureTime || '';
+      return ta.localeCompare(tb);
+    });
     state.searchResults = combined;
 
     if (combined.length === 0) {
@@ -1110,7 +1112,7 @@ function mergeResults(sailings, timetables, date) {
 
 function showWizStep2() {
   const wz = state.bookingWizard;
-  renderWizStepBar(2, wz?.withVehicle || false);
+  renderWizStepBar(2);
   const content = $('wiz-content');
   if (!content) return;
   const { origenNm, destinoNm, fechaIda } = wz.searchParams;
@@ -1192,37 +1194,64 @@ function selectSailing(idx) {
 function showWizStep3() {
   const wz = state.bookingWizard;
   if (!wz) return;
-  renderWizStepBar(3, wz.withVehicle);
+  renderWizStepBar(3);
   const content = $('wiz-content');
   if (!content) return;
   const fp = state.frequentPassengers;
   
-  // Si no hay pasajeros, mostramos el formulario para el primero
+  // Lista de pasajeros añadidos con sus vehículos
   const paxListHtml = wz.passengers.length > 0 ? `
     <div class="pax-list-container" style="margin-bottom:24px">
       <div style="font-weight:700;font-size:0.875rem;color:var(--gray-700);margin-bottom:12px">Pasajeros añadidos (${wz.passengers.length})</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${wz.passengers.map((p, idx) => `
-          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:white;border:1px solid var(--gray-200);border-radius:var(--radius)">
-            <div>
-              <div style="font-weight:600;font-size:0.875rem">
-                ${idx + 1}. ${esc(p.nombre)} ${esc(p.apellido1)}
+        ${wz.passengers.map((p, idx) => {
+          const paxVehicles = (wz.vehicles || []).filter(v => v.driverPassengerIndex === idx);
+          return `
+          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;background:white;border:1px solid var(--gray-200);border-radius:var(--radius);gap:12px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="font-weight:600;font-size:0.875rem">
+                  ${idx + 1}. ${esc(p.nombre)} ${esc(p.apellido1)}
+                </span>
+                ${paxVehicles.length > 0 ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;background:#dbeafe;color:#1d4ed8;border-radius:10px;font-size:0.65rem;font-weight:700">🚗 Conductor</span>' : ''}
               </div>
               <div style="font-size:0.75rem;color:var(--gray-500)">${esc(p.tipoDoc)}: ${esc(p.numDoc)} · ${esc(p.email)}</div>
+              ${paxVehicles.length > 0 ? `
+              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+                ${paxVehicles.map(v => `
+                  <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--gray-100);border-radius:10px;font-size:0.6875rem;color:var(--gray-600)">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    ${esc(v.marca||'')} ${esc(v.modelo||'')}
+                  </span>
+                `).join('')}
+                <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px;font-size:0.65rem;width:auto" onclick="event.stopPropagation();addVehicleToPassenger(${idx})">
+                  + Añadir vehículo
+                </button>
+              </div>` : `
+              <button type="button" class="btn btn-outline btn-sm" style="margin-top:6px;padding:2px 10px;font-size:0.6875rem;width:auto" onclick="event.stopPropagation();addVehicleToPassenger(${idx})">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                Añadir vehículo
+              </button>`}
             </div>
-            <button class="btn-icon-danger" onclick="removeWizPassenger(${idx})" title="Eliminar pasajero">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button class="btn-icon-outline" onclick="editWizPassenger(${idx})" title="Editar pasajero" style="width:28px;height:28px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon-danger" onclick="removeWizPassenger(${idx})" title="Eliminar pasajero" style="width:28px;height:28px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>
     </div>
-    ${wz.vehicles?.length > 0 ? `
+  ` : '';
+
+  const vehiclesInfoHtml = (wz.vehicles && wz.vehicles.length > 0) ? `
     <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#dbeafe;border:1px solid #bfdbfe;border-radius:var(--radius);margin-bottom:20px;font-size:0.875rem;color:#1d4ed8">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       <span><strong>${wz.vehicles.length} vehículo(s)</strong> añadido(s) a esta reserva</span>
-    </div>` : ''}
-  ` : '';
+    </div>` : '';
 
   content.innerHTML = `
     <div class="card">
@@ -1239,6 +1268,7 @@ function showWizStep3() {
         </div>
       </div>
 
+      ${vehiclesInfoHtml}
       ${paxListHtml}
 
       <div class="fp-section" style="background:var(--gray-50);border:1px dashed var(--gray-300);padding:16px;border-radius:var(--radius);margin-bottom:24px">
@@ -1387,11 +1417,16 @@ function checkFrequentPassengerDuplicate(value) {
   if (numdocInp) numdocInp.classList.toggle('is-frequent-dup', exists);
 }
 
-function showVehicleForm() {
+function showVehicleForm(passengerIndex) {
   const wz = state.bookingWizard;
   if (!wz) return;
   if (!Array.isArray(wz.vehicles) || wz.vehicles.length === 0) {
     wz.vehicles = [emptyVehicleEntry()];
+  }
+  // Auto-asignar conductor al pasajero proporcionado
+  const paxIdx = typeof passengerIndex === 'number' ? passengerIndex : (wz.passengers.length > 0 ? wz.passengers.length - 1 : undefined);
+  if (typeof paxIdx === 'number') {
+    wz.vehicles.forEach(v => { v.driverPassengerIndex = paxIdx; });
   }
   const section = $('vehicle-section');
   const container = $('vehicle-form-container');
@@ -1412,7 +1447,12 @@ function addAnotherVehicleBlock() {
   const wz = state.bookingWizard;
   if (!wz) return;
   persistAllVehicleBlocks();
-  wz.vehicles.push(emptyVehicleEntry());
+  const newEntry = emptyVehicleEntry();
+  // Mantener el mismo conductor que el primer vehículo
+  if (wz.vehicles.length > 0 && typeof wz.vehicles[0].driverPassengerIndex === 'number') {
+    newEntry.driverPassengerIndex = wz.vehicles[0].driverPassengerIndex;
+  }
+  wz.vehicles.push(newEntry);
   showVehicleForm();
 }
 
@@ -1423,8 +1463,58 @@ function hideVehicleSection() {
 
 function removeWizPassenger(idx) {
   if (!state.bookingWizard) return;
-  state.bookingWizard.passengers.splice(idx, 1);
+  // También eliminar vehículos asociados a este pasajero
+  const wz = state.bookingWizard;
+  if (wz.vehicles) {
+    wz.vehicles = wz.vehicles.filter(v => v.driverPassengerIndex !== idx);
+    // Reajustar índices de conductor
+    wz.vehicles.forEach(v => {
+      if (typeof v.driverPassengerIndex === 'number' && v.driverPassengerIndex > idx) {
+        v.driverPassengerIndex--;
+      }
+    });
+  }
+  wz.passengers.splice(idx, 1);
   showWizStep3();
+}
+
+function addVehicleToPassenger(passengerIndex) {
+  showVehicleForm(passengerIndex);
+}
+
+function editWizPassenger(idx) {
+  const wz = state.bookingWizard;
+  if (!wz || !wz.passengers[idx]) return;
+  const p = wz.passengers[idx];
+  // Rellenar el formulario con los datos del pasajero
+  const set = (id, v) => { const el = $(id); if (el) el.value = v || ''; };
+  set('pax-nombre', p.nombre);
+  set('pax-ape1', p.apellido1);
+  set('pax-ape2', p.apellido2 || '');
+  set('pax-email', p.email);
+  set('pax-email2', p.email);
+  const knownPrefixes = ['+34','+1','+44','+33','+49','+39','+351'];
+  let telPrefix = '+34', telNumber = p.telefono || '';
+  for (const pre of knownPrefixes) {
+    if (telNumber.startsWith(pre + ' ') || telNumber.startsWith(pre)) {
+      telPrefix = pre;
+      telNumber = telNumber.slice(pre.length).trim();
+      break;
+    }
+  }
+  const preEl = $('pax-pre'); if (preEl) preEl.value = telPrefix;
+  set('pax-tel', telNumber);
+  set('pax-fnac', p.fnac);
+  set('pax-nac', p.nacionalidad);
+  set('pax-tipdoc', p.tipoDoc);
+  set('pax-numdoc', p.numDoc);
+  set('pax-expdoc', p.expDoc);
+  // Eliminar el pasajero original y dar feedback
+  wz.passengers.splice(idx, 1);
+  showToast('info', 'Editando pasajero', 'Modifica los datos y pulsa "Añadir pasajero" para guardar.');
+  // Scroll al formulario
+  const form = $('wiz-pax-form');
+  if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function addPassengerAction(e) {
@@ -1454,9 +1544,19 @@ async function addPassengerAction(e) {
   if (!ok) return;
 
   const wz = state.bookingWizard;
+  // Validación de identidad única: comprobar DNI/Pasaporte duplicado
   if (wz.passengers.some(p => p.numDoc === numdoc)) {
     showToast('warning','Pasajero duplicado','Ya existe un pasajero con este número de documento en la reserva.');
     fieldErr('e-pax-numdoc','pax-numdoc','Ya existe en esta reserva');
+    return;
+  }
+  // Validación adicional: comprobar nombre completo + fecha de nacimiento
+  const fullNameKey = `${nombre.toLowerCase()} ${ape1.toLowerCase()}`;
+  if (wz.passengers.some(p => {
+    const existingKey = `${(p.nombre||'').toLowerCase()} ${(p.apellido1||'').toLowerCase()}`;
+    return existingKey === fullNameKey && p.fnac === fnac;
+  })) {
+    showToast('warning','Pasajero duplicado','Ya existe un pasajero con el mismo nombre y fecha de nacimiento en esta reserva.');
     return;
   }
 
@@ -1491,7 +1591,7 @@ function finalizePassengerStep() {
     return;
   }
   persistAllVehicleBlocks();
-  showWizStep4();
+  showWizStep5();
 }
 
 function selectFrequentPax(idx) {
@@ -1756,14 +1856,7 @@ function renderVehicleBlock(idx) {
       </div>
     </div>
 
-    <div class="form-group" style="margin-top:12px">
-      <label class="form-label">Conductor <span style="color:var(--danger)">*</span></label>
-      <select id="veh-driver-${idx}" class="form-input">
-        <option value="">— Seleccionar conductor —</option>
-        ${wz.passengers.map((p, pidx) => `<option value="${pidx}" ${v.driverPassengerIndex === pidx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}</option>`).join('')}
-      </select>
-      <span class="error-msg" id="e-veh-driver-${idx}"></span>
-    </div>
+    <input type="hidden" id="veh-driver-${idx}" value="${typeof v.driverPassengerIndex === 'number' ? v.driverPassengerIndex : ''}">
   </div>`;
 }
 
@@ -1820,9 +1913,12 @@ function removeVehicleBlock(idx) {
   if (!wz?.vehicles) return;
   persistAllVehicleBlocks();
   wz.vehicles.splice(idx, 1);
-  if (wz.vehicles.length === 0) wz.vehicles.push(emptyVehicleEntry());
+  if (wz.vehicles.length === 0) {
+    hideVehicleSection();
+    return;
+  }
   wz._vehicleCount = wz.vehicles.length;
-  showWizStep4();
+  showVehicleForm();
 }
 
 function wizStep4Submit(e) {
@@ -1867,7 +1963,7 @@ function wizStep4Submit(e) {
 function showWizStep5() {
   const wz = state.bookingWizard;
   if (!wz || !wz.passengers || wz.passengers.length === 0) return;
-  renderWizStepBar(wz.withVehicle ? 5 : 4, wz.withVehicle);
+  renderWizStepBar(4);
   const content = $('wiz-content');
   if (!content) return;
   const pax = wz.passengers[0];
@@ -1880,7 +1976,7 @@ function showWizStep5() {
   content.innerHTML = `
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="${wz.withVehicle ? 'showWizStep4()' : 'showWizStep3()'}">
+        <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="showWizStep3()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           Volver
         </button>
@@ -1985,7 +2081,7 @@ function showWizStep5() {
           </label>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button type="button" class="btn btn-secondary" style="width:auto" onclick="${wz.withVehicle ? 'showWizStep4()' : 'showWizStep3()'}">← Volver</button>
+          <button type="button" class="btn btn-secondary" style="width:auto" onclick="showWizStep3()">← Volver</button>
           <button type="submit" class="btn btn-primary" style="width:auto;padding:11px 32px;font-size:1rem">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             Confirmar reserva
@@ -2204,7 +2300,7 @@ function renderViajes() {
                   </td>
                   <td onclick="event.stopPropagation()">
                     <div class="tbl-actions">
-                      ${b.localizador && b.estado !== 'cancelado' ? `
+                      ${(b.localizador || b.estado === 'Confirmado') && b.estado !== 'cancelado' ? `
                       <button class="btn btn-warning btn-sm" onclick="cancelBooking(${b.id})" title="Cancelar">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                       </button>` : ''}
@@ -2268,7 +2364,7 @@ function renderViajes() {
               </div>
             </div>
             <div class="bk-card-foot" onclick="event.stopPropagation()">
-              ${b.localizador && b.estado !== 'cancelado' ? `
+              ${(b.localizador || b.estado === 'Confirmado') && b.estado !== 'cancelado' ? `
               <button class="btn btn-warning btn-sm" onclick="cancelBooking(${b.id})">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 Cancelar
@@ -3204,7 +3300,7 @@ function changeVehicleCount(delta) {
     wz.vehicles.length = next;
   }
   wz._vehicleCount = wz.vehicles.length;
-  showWizStep4();
+  showVehicleForm();
 }
 
 function updateCounterBtns() {

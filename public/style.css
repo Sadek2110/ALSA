@@ -277,6 +277,38 @@ select.form-input.is-error:focus {
 .btn-outline:focus-visible { outline: 3px solid rgba(61,142,232,0.3); outline-offset: 2px; }
 .btn-outline:disabled, .btn-outline[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 
+.btn-warning { background: var(--warning, #f59e0b); color: white; }
+.btn-warning:hover { background: #d97706; box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
+.btn-warning:focus-visible { outline: 3px solid rgba(245,158,11,0.4); outline-offset: 2px; }
+
+.btn-icon-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--gray-400);
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 4px;
+  transition: var(--transition);
+}
+.btn-icon-danger:hover { background: #fee2e2; color: var(--danger); }
+
+.btn-icon-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--gray-200);
+  background: white;
+  color: var(--gray-500);
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 4px;
+  transition: var(--transition);
+}
+.btn-icon-outline:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-50); }
+
 .btn-sm { padding: 6px 11px; font-size: 0.8125rem; font-weight: 500; }
 
 .forgot-link {
