@@ -1224,9 +1224,6 @@ function showWizStep3() {
                     ${esc(v.marca||'')} ${esc(v.modelo||'')}
                   </span>
                 `).join('')}
-                <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px;font-size:0.65rem;width:auto" onclick="event.stopPropagation();addVehicleToPassenger(${idx})">
-                  + Añadir vehículo
-                </button>
               </div>` : `
               <button type="button" class="btn btn-outline btn-sm" style="margin-top:6px;padding:2px 10px;font-size:0.6875rem;width:auto" onclick="event.stopPropagation();addVehicleToPassenger(${idx})">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -1438,15 +1435,8 @@ function showVehicleForm(passengerIndex) {
   const container = $('vehicle-form-container');
   if (!section || !container) return;
   const blocks = wz.vehicles.map((_, idx) => renderVehicleBlock(idx)).join('');
-  container.innerHTML = `<div id="vehicle-blocks-wrapper">${blocks}</div>
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button type="button" class="btn btn-outline btn-sm" onclick="addAnotherVehicleBlock()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Añadir otro vehículo
-      </button>
-    </div>`;
+  container.innerHTML = `<div id="vehicle-blocks-wrapper">${blocks}</div>`;
   section.style.display = 'block';
-  updateCounterBtns();
 }
 
 function addAnotherVehicleBlock() {
@@ -1494,6 +1484,12 @@ function addVehicleToPassenger(passengerIndex) {
   // Persistir cualquier dato de vehículo que esté en el DOM
   persistAllVehicleBlocks();
   if (!Array.isArray(wz.vehicles)) wz.vehicles = [];
+  // Verificar que este pasajero no tenga ya un vehículo asignado
+  const alreadyHasVehicle = wz.vehicles.some(v => v.driverPassengerIndex === passengerIndex);
+  if (alreadyHasVehicle) {
+    showToast('warning', 'Vehículo ya asignado', 'Este pasajero ya tiene un vehículo asignado. Un conductor no puede tener dos vehículos.');
+    return;
+  }
   // Crear un nuevo vehículo para este pasajero (un conductor = un vehículo)
   const newEntry = emptyVehicleEntry();
   newEntry.driverPassengerIndex = passengerIndex;
@@ -1754,15 +1750,6 @@ function showWizStep4() {
         </div>
       </div>
 
-      <div style="margin-bottom:18px">
-        <span class="form-sec-label">Cantidad de vehículos</span>
-        <div class="vehicle-counter">
-          <button type="button" class="counter-btn" onclick="changeVehicleCount(-1)" id="vc-minus">−</button>
-          <div class="counter-value" id="vc-value">${wz.vehicles.length}</div>
-          <button type="button" class="counter-btn" onclick="changeVehicleCount(1)" id="vc-plus">+</button>
-        </div>
-      </div>
-
       <form id="wiz-veh-form" onsubmit="wizStep4Submit(event)" novalidate>
         ${blocks}
 
@@ -1773,7 +1760,6 @@ function showWizStep4() {
       </form>
     </div>`;
 
-  updateCounterBtns();
 }
 
 function renderVehicleBlock(idx) {
