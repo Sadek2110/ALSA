@@ -1423,10 +1423,14 @@ function showVehicleForm(passengerIndex) {
   if (!Array.isArray(wz.vehicles) || wz.vehicles.length === 0) {
     wz.vehicles = [emptyVehicleEntry()];
   }
-  // Auto-asignar conductor al pasajero proporcionado
+  // Auto-asignar conductor: solo a vehículos que aún no tengan conductor asignado
   const paxIdx = typeof passengerIndex === 'number' ? passengerIndex : (wz.passengers.length > 0 ? wz.passengers.length - 1 : undefined);
   if (typeof paxIdx === 'number') {
-    wz.vehicles.forEach(v => { v.driverPassengerIndex = paxIdx; });
+    wz.vehicles.forEach(v => {
+      if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex)) {
+        v.driverPassengerIndex = paxIdx;
+      }
+    });
   }
   const section = $('vehicle-section');
   const container = $('vehicle-form-container');
@@ -1448,9 +1452,12 @@ function addAnotherVehicleBlock() {
   if (!wz) return;
   persistAllVehicleBlocks();
   const newEntry = emptyVehicleEntry();
-  // Mantener el mismo conductor que el primer vehículo
-  if (wz.vehicles.length > 0 && typeof wz.vehicles[0].driverPassengerIndex === 'number') {
-    newEntry.driverPassengerIndex = wz.vehicles[0].driverPassengerIndex;
+  // Heredar el conductor del último vehículo añadido
+  if (wz.vehicles.length > 0) {
+    const lastVeh = wz.vehicles[wz.vehicles.length - 1];
+    if (typeof lastVeh.driverPassengerIndex === 'number') {
+      newEntry.driverPassengerIndex = lastVeh.driverPassengerIndex;
+    }
   }
   wz.vehicles.push(newEntry);
   showVehicleForm();
@@ -1479,6 +1486,20 @@ function removeWizPassenger(idx) {
 }
 
 function addVehicleToPassenger(passengerIndex) {
+  const wz = state.bookingWizard;
+  if (!wz) return;
+  if (!Array.isArray(wz.vehicles)) wz.vehicles = [];
+  // Si no hay vehículos aún, crear el primero para este pasajero
+  if (wz.vehicles.length === 0) {
+    const newEntry = emptyVehicleEntry();
+    newEntry.driverPassengerIndex = passengerIndex;
+    wz.vehicles.push(newEntry);
+  } else {
+    // Si ya hay vehículos, crear uno nuevo específicamente para este pasajero
+    const newEntry = emptyVehicleEntry();
+    newEntry.driverPassengerIndex = passengerIndex;
+    wz.vehicles.push(newEntry);
+  }
   showVehicleForm(passengerIndex);
 }
 
