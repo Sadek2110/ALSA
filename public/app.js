@@ -1423,7 +1423,7 @@ function showVehicleForm(passengerIndex) {
     wz.vehicles = [emptyVehicleEntry()];
   }
   // Auto-asignar conductor: solo a vehículos que aún no tengan conductor asignado
-  const paxIdx = typeof passengerIndex === 'number' ? passengerIndex : (wz.passengers.length > 0 ? wz.passengers.length - 1 : undefined);
+  const paxIdx = typeof passengerIndex === 'number' ? passengerIndex : (wz.passengers.length > 0 ? wz.passengers.length - 1 : -1);
   if (typeof paxIdx === 'number') {
     wz.vehicles.forEach(v => {
       if (typeof v.driverPassengerIndex !== 'number' || isNaN(v.driverPassengerIndex)) {
@@ -1596,6 +1596,16 @@ async function addPassengerAction(e) {
 
   // Persistir vehículos que estén en el formulario antes de recargar la página
   persistAllVehicleBlocks();
+
+  // Asignar vehículos pendientes (driverPassengerIndex === -1) a este pasajero
+  const newPaxIdx = state.bookingWizard.passengers.length;
+  if (Array.isArray(state.bookingWizard.vehicles)) {
+    state.bookingWizard.vehicles.forEach(v => {
+      if (v.driverPassengerIndex === -1) {
+        v.driverPassengerIndex = newPaxIdx;
+      }
+    });
+  }
 
   state.bookingWizard.passengers.push(pax);
   showToast('success','Pasajero añadido',`${nombre} ha sido añadido al viaje.`);
