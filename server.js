@@ -8,6 +8,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const cors    = require('cors');
 const nodemailer = require('nodemailer');
 const path       = require('path');
 
@@ -174,6 +175,15 @@ function escHtml(text) {
 // ============================================================
 // MIDDLEWARE GLOBAL
 // ============================================================
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? 'https://alsa.kikoto.es'
+    : ['http://localhost:3000', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
