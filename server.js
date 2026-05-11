@@ -118,12 +118,70 @@ async function sendBookingEmail(booking) {
   });
 }
 
+async function sendInviteEmail(email, usuario, nombre, token) {
+  const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+  const link = `${baseUrl}/set-password?token=${token}`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f9;margin:0;padding:30px">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <tr><td style="background:linear-gradient(135deg,#1a56db,#2563eb);padding:28px 32px;text-align:center">
+          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700">ALSA · Gestión de Agencias</h1>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <h2 style="margin:0 0 8px;font-size:18px;color:#111827">Hola${nombre ? ' ' + nombre : ''},</h2>
+          <p style="margin:0 0 16px;color:#4b5563;font-size:14px;line-height:1.6">
+            <strong>${escHtml(email)}</strong> te ha invitado a formar parte del equipo de administración de ALSA como <strong>@${escHtml(usuario)}</strong>.
+          </p>
+          <p style="margin:0 0 24px;color:#4b5563;font-size:14px;line-height:1.6">
+            Haz clic en el botón de abajo para activar tu cuenta y crear tu contraseña. Este enlace expira en 48 horas.
+          </p>
+          <div style="text-align:center;margin-bottom:24px">
+            <a href="${link}" style="display:inline-block;background:#1a56db;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Activar mi cuenta</a>
+          </div>
+          <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6">
+            Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
+            <span style="color:#6b7280">${link}</span>
+          </p>
+          <p style="margin:16px 0 0;color:#9ca3af;font-size:12px">
+            Si no solicitaste esta invitación, puedes ignorar este mensaje.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await mailer.sendMail({
+    from: `"ALSA" <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject: `[ALSA] Invitación al equipo de administración — @${usuario}`,
+    html,
+  });
+}
+
+function escHtml(text) {
+  if (!text) return '';
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // ============================================================
 // MIDDLEWARE GLOBAL
 // ============================================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── SPA route for activation page ──
+app.get('/set-password', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ============================================================
 // HELPERS
@@ -243,6 +301,132 @@ app.put('/api/administrators/:id', async (req, res) => {
 app.delete('/api/administrators/:id', async (req, res) => {
   try { const n = await db.deleteRow('administrators', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Administrador no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
+});
+
+// ── INVITE ADMINISTRATOR (envía correo real) ──
+app.post('/api/administrators/invite', async (req, res) => {
+  try {
+    const { email, usuario, nombre, inviterUserId } = req.body;
+
+    // Solo el super_admin puede invitar
+    if (!inviterUserId) return fail(res, 'No autorizado: se requiere identificación del administrador.', 403);
+    const { rows: inviterRows } = await db.query('SELECT role FROM users WHERE id = $1 AND is_active = TRUE', [inviterUserId]);
+    if (inviterRows.length === 0 || inviterRows[0].role !== 'super_admin') {
+      return fail(res, 'Solo el administrador principal puede enviar invitaciones.', 403);
+    }
+    if (!email || !usuario) return fail(res, 'Email y usuario son obligatorios.', 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(res, 'Email no válido.', 400);
+    if (usuario.length < 3) return fail(res, 'El usuario debe tener al menos 3 caracteres.', 400);
+
+    // Verificar email duplicado
+    const { rows: dupEmail } = await db.query(
+      'SELECT id FROM administrators WHERE email = $1 UNION ALL SELECT id FROM users WHERE email = $1', [email]
+    );
+    if (dupEmail.length > 0) return fail(res, 'Ya existe un administrador con ese email.', 409);
+
+    // Verificar usuario duplicado
+    const { rows: dupUser } = await db.query('SELECT id FROM administrators WHERE usuario = $1', [usuario]);
+    if (dupUser.length > 0) return fail(res, 'Ya existe un administrador con ese nombre de usuario.', 409);
+
+    const crypto = require('crypto');
+    const token = crypto.randomUUID();
+    const expires = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+    const row = await db.insertRow('administrators', {
+      nombre: nombre || usuario,
+      email,
+      usuario,
+      activo: false,
+      fecha: new Date().toISOString().slice(0, 10),
+      acciones: 'Invitación enviada',
+      inviteToken: token,
+      inviteTokenExpires: expires,
+    });
+
+    try {
+      await sendInviteEmail(email, usuario, nombre || usuario, token);
+    } catch (mailErr) {
+      console.error('[EMAIL] Error enviando invitación:', mailErr.message);
+      return fail(res, 'Administrador creado pero no se pudo enviar el correo. Intenta reenviar la invitación.', 500);
+    }
+
+    ok(res, row, 201);
+  } catch (err) {
+    console.error('[ADMIN INVITE]', err.message);
+    fail(res, err.message, 400);
+  }
+});
+
+// ── VALIDATE INVITATION TOKEN ──
+app.get('/api/auth/invitation/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { rows } = await db.query(
+      'SELECT id, nombre, email, usuario, invite_token, invite_token_expires FROM administrators WHERE invite_token = $1',
+      [token]
+    );
+    if (rows.length === 0) return fail(res, 'Token de invitación no encontrado.', 404);
+
+    const admin = rows[0];
+    if (new Date(admin.invite_token_expires) < new Date()) {
+      return fail(res, 'El enlace de invitación ha expirado (48h). Solicita una nueva invitación.', 410);
+    }
+
+    ok(res, {
+      nombre: admin.nombre,
+      email: admin.email,
+      usuario: admin.usuario,
+    });
+  } catch (err) {
+    console.error('[INVITE VALIDATE]', err.message);
+    fail(res, err.message, 400);
+  }
+});
+
+// ── ACTIVATE ACCOUNT (set password) ──
+app.post('/api/auth/activate', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return fail(res, 'Token y contraseña son obligatorios.', 400);
+    if (password.length < 8) return fail(res, 'La contraseña debe tener al menos 8 caracteres.', 400);
+
+    const { rows } = await db.query(
+      'SELECT id, nombre, email, usuario, invite_token, invite_token_expires FROM administrators WHERE invite_token = $1',
+      [token]
+    );
+    if (rows.length === 0) return fail(res, 'Token de invitación no encontrado.', 404);
+
+    const admin = rows[0];
+    if (new Date(admin.invite_token_expires) < new Date()) {
+      return fail(res, 'El enlace de invitación ha expirado (48h). Solicita una nueva invitación.', 410);
+    }
+
+    // Verificar si ya existe un usuario con ese email
+    const { rows: existingUser } = await db.query('SELECT id FROM users WHERE email = $1', [admin.email]);
+    if (existingUser.length > 0) {
+      return fail(res, 'Ya existe una cuenta de usuario con ese email.', 409);
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hash = bcrypt.hashSync(password, 10);
+
+    // Crear usuario en tabla users
+    await db.query(
+      'INSERT INTO users (email, password_hash, nombre, role, is_active) VALUES ($1, $2, $3, $4, TRUE)',
+      [admin.email, hash, admin.nombre, 'admin']
+    );
+
+    // Activar administrador y limpiar token
+    await db.query(
+      'UPDATE administrators SET activo = TRUE, invite_token = NULL, invite_token_expires = NULL, acciones = $1, updated_at = NOW() WHERE id = $2',
+      ['Cuenta activada', admin.id]
+    );
+
+    ok(res, { message: 'Cuenta activada correctamente. Ya puedes iniciar sesión.', email: admin.email });
+  } catch (err) {
+    console.error('[ACTIVATE]', err.message);
+    fail(res, err.message, 400);
+  }
 });
 
 app.post('/api/frequent-passengers', async (req, res) => {

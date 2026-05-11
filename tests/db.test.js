@@ -28,6 +28,8 @@ describe('db.js — init()', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ now: new Date() }] });
     mockQuery.mockResolvedValueOnce({ rows: [] });
     mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
     mockQuery.mockResolvedValueOnce({ rows: [{ cnt: '1' }] });
 
     await db.init();

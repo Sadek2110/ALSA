@@ -62,9 +62,39 @@ const state = {
 // ============================================================
 // INIT
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  showPage('login');
+document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('token');
+
+  if (token) {
+    // El usuario ha llegado desde el enlace de invitación
+    const valid = await validateInviteToken(token);
+    if (valid) {
+      showPage('set-password');
+    } else {
+      showPage('login');
+      showToast('error', 'Invitación inválida', 'El enlace de activación no es válido o ha expirado. Solicita una nueva invitación.');
+    }
+  } else {
+    showPage('login');
+  }
 });
+
+async function validateInviteToken(token) {
+  try {
+    const info = await api('GET', `/auth/invitation/${encodeURIComponent(token)}`);
+    // Mostrar info del admin invitado en la página de activación
+    const el = document.getElementById('inv-admin-info');
+    if (el && info.email) {
+      el.textContent = `${info.nombre || info.usuario} (${info.email})`;
+      el.style.display = 'block';
+    }
+    return true;
+  } catch (err) {
+    console.error('[INVITE] Token inválido:', err.message);
+    return false;
+  }
+}
 
 /**
  * Carga todos los datos desde el backend Node.js.
@@ -1201,13 +1231,16 @@ function showWizStep3() {
   
   // Lista de pasajeros añadidos con sus vehículos
   const paxListHtml = wz.passengers.length > 0 ? `
-    <div class="pax-list-container" style="margin-bottom:24px">
-      <div style="font-weight:700;font-size:0.875rem;color:var(--gray-700);margin-bottom:12px">Pasajeros añadidos (${wz.passengers.length})</div>
+    <div class="pax-list-container" style="margin-bottom:24px;padding:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--radius)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:700;font-size:0.875rem;color:#c2410c">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Pasajeros añadidos (${wz.passengers.length})
+      </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${wz.passengers.map((p, idx) => {
           const paxVehicles = (wz.vehicles || []).filter(v => v.driverPassengerIndex === idx);
           return `
-          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;background:white;border:1px solid var(--gray-200);border-radius:var(--radius);gap:12px">
+          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;background:white;border:1px solid #fed7aa;border-radius:var(--radius);gap:12px">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                 <span style="font-weight:600;font-size:0.875rem">
@@ -1249,7 +1282,7 @@ function showWizStep3() {
   ` : '';
 
   const vehiclesInfoHtml = (wz.vehicles && wz.vehicles.length > 0) ? `
-    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#dbeafe;border:1px solid #bfdbfe;border-radius:var(--radius);margin-bottom:20px;font-size:0.875rem;color:#1d4ed8">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:var(--radius);margin-bottom:20px;font-size:0.875rem;color:#0369a1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       <span><strong>${wz.vehicles.length} vehículo(s)</strong> añadido(s) a esta reserva</span>
     </div>` : '';
@@ -1272,8 +1305,8 @@ function showWizStep3() {
       ${vehiclesInfoHtml}
       ${paxListHtml}
 
-      <div class="fp-section" style="background:var(--gray-50);border:1px dashed var(--gray-300);padding:16px;border-radius:var(--radius);margin-bottom:24px">
-        <div class="fp-section-header" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.8125rem">
+      <div class="fp-section" style="background:#f5f3ff;border:1px solid #c4b5fd;padding:16px;border-radius:var(--radius);margin-bottom:24px">
+        <div class="fp-section-header" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.8125rem;color:#7c3aed">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           Cargar desde Pasajeros Frecuentes
         </div>
@@ -1287,7 +1320,12 @@ function showWizStep3() {
       </div>
 
       <form id="wiz-pax-form" onsubmit="addPassengerAction(event)" novalidate>
-        <div style="font-weight:700;font-size:0.8125rem;color:var(--gray-500);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.025em">Datos del nuevo pasajero</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #dbeafe">
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#3b82f6;color:white;flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+          <span style="font-weight:700;font-size:0.875rem;color:#1e40af;text-transform:uppercase;letter-spacing:0.025em">Datos del nuevo pasajero</span>
+        </div>
         <div id="fp-duplicate-warn" style="display:none;margin-bottom:16px;padding:10px 14px;background:#fef9c3;border:1px solid #facc15;border-radius:var(--radius);font-size:0.8125rem;color:var(--gray-700);align-items:center;gap:8px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <span>Este pasajero ya existe en tu lista de pasajeros frecuentes.</span>
@@ -1367,9 +1405,9 @@ function showWizStep3() {
           </label>
         </div>
 
-        <div id="vehicle-section" style="display:none;margin:0 0 20px;padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius)">
+        <div id="vehicle-section" style="display:none;margin:0 0 20px;padding:16px;background:#f0f9ff;border:2px solid #38bdf8;border-radius:var(--radius)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.875rem;color:var(--gray-700)">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.875rem;color:#0369a1">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
               Datos del vehículo
             </div>
@@ -2856,6 +2894,7 @@ function renderAdmins() {
       </div>
     </div>
 
+    ${state.currentUser?.role === 'super_admin' ? `
     <div class="card">
       <div class="card-title">Invitar nuevo administrador</div>
       <div class="card-desc">El usuario recibirá un correo con un enlace para activar su cuenta y crear su contraseña</div>
@@ -2879,7 +2918,7 @@ function renderAdmins() {
         </button>
         <div id="inv-success" style="display:none"></div>
       </form>
-    </div>
+    </div>` : ''}
   </div>`;
 }
 
@@ -3100,15 +3139,23 @@ async function doInviteAdmin(e) {
   if (!usuario||usuario.length<3) { fieldErr('e-ia-user','ia-user','Mínimo 3 caracteres'); ok=false; } else fieldOk('e-ia-user','ia-user');
   if (!ok) return;
 
+  if (state.currentUser?.role !== 'super_admin') {
+    showToast('error','Acceso denegado', 'Solo el administrador principal puede enviar invitaciones.');
+    return;
+  }
+
   try {
-    const saved = await api('POST', '/administrators', { nombre: usuario, email, usuario, activo: false, fecha: new Date().toISOString().split('T')[0], acciones: 'Invitación enviada' });
+    const saved = await api('POST', '/administrators/invite', {
+      email,
+      usuario,
+      nombre: usuario,
+      inviterUserId: state.currentUser.id,
+    });
     const newAdmin = saved;
     state.admins.push(newAdmin);
-    const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-    state.pendingAdmin = { email, usuario, id: newAdmin.id, token };
   } catch(e) {
-    console.error('[ADMIN] Error guardando admin:', e.message);
-    showToast('error','Error', 'No se pudo crear el administrador: ' + e.message);
+    console.error('[ADMIN] Error invitando admin:', e.message);
+    showToast('error','Error', 'No se pudo enviar la invitación: ' + e.message);
     return;
   }
 
@@ -3120,17 +3167,13 @@ async function doInviteAdmin(e) {
     banner.style.display = 'block';
     banner.innerHTML = `
       <div class="success-banner">
-        <div class="success-banner-title">✓ Invitación registrada en el backend</div>
-        <div class="success-banner-sub">Enlace de activación generado para <strong>${esc(email)}</strong>. El usuario deberá crear su contraseña para activar la cuenta.</div>
-        <button class="btn btn-success btn-sm" onclick="goSetPassword()">Simular activación →</button>
+        <div class="success-banner-title">✓ Invitación enviada</div>
+        <div class="success-banner-sub">Se ha enviado un correo de invitación a <strong>${esc(email)}</strong>. El usuario deberá hacer clic en el enlace para activar su cuenta y crear su contraseña. El enlace expira en 48 horas.</div>
       </div>
     `;
   }
-  showToast('success','Invitación enviada',`Enlace de activación generado para ${email}`);
-}
-
-function goSetPassword() {
-  showPage('set-password');
+  showToast('success','Invitación enviada',`Correo de invitación enviado a ${email}`);
+  navigateTo('administradores');
 }
 
 async function handleSetPassword(e) {
@@ -3143,16 +3186,27 @@ async function handleSetPassword(e) {
   if (pwd!==rep) { fieldErr('err-rep-pwd','rep-pwd','Las contraseñas no coinciden'); ok=false; } else fieldOk('err-rep-pwd','rep-pwd');
   if (!ok) return;
 
-  if (state.pendingAdmin) {
-    const { id } = state.pendingAdmin;
-    const a = state.admins.find(a => a.id === id);
-    if (a) { a.activo = true; a.acciones = 'Cuenta recién activada'; }
-    state.pendingAdmin = null;
+  const token = new URLSearchParams(window.location.search).get('token');
+  if (!token) {
+    showToast('error','Error','No se encontró el token de activación en la URL.');
+    return;
   }
 
-  showPage('dashboard');
-  navigateTo('administradores');
-  showToast('success','¡Cuenta activada!','La cuenta de administrador ha sido activada correctamente.');
+  try {
+    await api('POST', '/auth/activate', { token, password: pwd });
+    showPage('login');
+    showToast('success','¡Cuenta activada!','Tu cuenta ha sido activada. Ya puedes iniciar sesión con tu email y contraseña.');
+    // Limpiar URL
+    window.history.replaceState({}, '', window.location.pathname);
+  } catch (err) {
+    console.error('[ACTIVATE] Error:', err.message);
+    showToast('error','Error al activar', err.message);
+    // Si el token expiró o es inválido, redirigir al login
+    if (err.message.includes('expirado') || err.message.includes('no encontrado')) {
+      showPage('login');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }
 }
 
 function toggleAdmin(id, active) {

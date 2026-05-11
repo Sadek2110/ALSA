@@ -154,6 +154,8 @@ async function init() {
 
   // ── Migraciones ──
   await query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS groupid TEXT');
+  await query('ALTER TABLE administrators ADD COLUMN IF NOT EXISTS invite_token TEXT');
+  await query('ALTER TABLE administrators ADD COLUMN IF NOT EXISTS invite_token_expires TIMESTAMPTZ');
 
   const { rows } = await query('SELECT COUNT(*) as cnt FROM users');
   if (parseInt(rows[0].cnt, 10) === 0) {
@@ -182,7 +184,7 @@ const COL_MAP = {
   members: ['id','nombre','apellido','apellido1','apellido2','dni','tipodoc','numdoc','expdoc','email','telefono','fechanacimiento','fechaexpiracion','nacionalidad','created_at','updated_at'],
   vehicles: ['id','marca','modelo','matricula','ancho','largo','alto','created_at','updated_at'],
   invoices: ['id','numero','fecha','importe','estado','archivo','created_at','updated_at'],
-  administrators: ['id','nombre','email','usuario','activo','fecha','acciones','created_at','updated_at'],
+  administrators: ['id','nombre','email','usuario','activo','fecha','acciones','invite_token','invite_token_expires','created_at','updated_at'],
   frequent_passengers: ['id','nombre','apellido1','apellido2','email','telefono','fnac','nacionalidad','tipodoc','numdoc','expdoc','created_at','updated_at'],
 };
 
@@ -192,7 +194,7 @@ const CAMEL_MAP = {
   members: { nombre:'nombre', apellido:'apellido', apellido1:'apellido1', apellido2:'apellido2', dni:'dni', tipodoc:'tipoDoc', numdoc:'numDoc', expdoc:'expDoc', email:'email', telefono:'telefono', fechanacimiento:'fechaNacimiento', fechaexpiracion:'fechaExpiracion', nacionalidad:'nacionalidad', created_at:'createdAt', updated_at:'updatedAt' },
   vehicles: { marca:'marca', modelo:'modelo', matricula:'matricula', ancho:'ancho', largo:'largo', alto:'alto', created_at:'createdAt', updated_at:'updatedAt' },
   invoices: { numero:'numero', fecha:'fecha', importe:'importe', estado:'estado', archivo:'archivo', created_at:'createdAt', updated_at:'updatedAt' },
-  administrators: { nombre:'nombre', email:'email', usuario:'usuario', activo:'activo', fecha:'fecha', acciones:'acciones', created_at:'createdAt', updated_at:'updatedAt' },
+  administrators: { nombre:'nombre', email:'email', usuario:'usuario', activo:'activo', fecha:'fecha', acciones:'acciones', invite_token:'inviteToken', invite_token_expires:'inviteTokenExpires', created_at:'createdAt', updated_at:'updatedAt' },
   frequent_passengers: { nombre:'nombre', apellido1:'apellido1', apellido2:'apellido2', email:'email', telefono:'telefono', fnac:'fnac', nacionalidad:'nacionalidad', tipodoc:'tipoDoc', numdoc:'numDoc', expdoc:'expDoc', created_at:'createdAt', updated_at:'updatedAt' },
 };
 
@@ -212,7 +214,7 @@ const DB_MAP = {
   members: { nombre:'nombre', apellido:'apellido', apellido1:'apellido1', apellido2:'apellido2', dni:'dni', tipoDoc:'tipodoc', numDoc:'numdoc', expDoc:'expdoc', email:'email', telefono:'telefono', fechaNacimiento:'fechanacimiento', fechaExpiracion:'fechaexpiracion', nacionalidad:'nacionalidad' },
   vehicles: { marca:'marca', modelo:'modelo', matricula:'matricula', ancho:'ancho', largo:'largo', alto:'alto' },
   invoices: { numero:'numero', fecha:'fecha', importe:'importe', estado:'estado', archivo:'archivo' },
-  administrators: { nombre:'nombre', email:'email', usuario:'usuario', activo:'activo', fecha:'fecha', acciones:'acciones' },
+  administrators: { nombre:'nombre', email:'email', usuario:'usuario', activo:'activo', fecha:'fecha', acciones:'acciones', inviteToken:'invite_token', inviteTokenExpires:'invite_token_expires' },
   frequent_passengers: { nombre:'nombre', apellido1:'apellido1', apellido2:'apellido2', email:'email', telefono:'telefono', fnac:'fnac', nacionalidad:'nacionalidad', tipoDoc:'tipodoc', numDoc:'numdoc', expDoc:'expdoc' },
 };
 
