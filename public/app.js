@@ -3569,9 +3569,10 @@ async function editMember(id) {
           <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-input" id="em-nombre" value="${esc(m.nombre)}"></div>
           <div class="form-group"><label class="form-label">Apellido 1</label><input type="text" class="form-input" id="em-ape1" value="${esc(m.apellido1 || (m.apellido ? m.apellido.split(' ')[0] : ''))}"></div>
           <div class="form-group"><label class="form-label">Apellido 2</label><input type="text" class="form-input" id="em-ape2" value="${esc(m.apellido2 || (m.apellido ? m.apellido.split(' ').slice(1).join(' ') : ''))}"></div>
-          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="em-email" value="${esc(m.email||'')}"></div>
+          <div class="form-group"><label class="form-label">DNI</label><input type="text" class="form-input" id="em-dni" value="${esc(m.dni||m.numDoc||'')}"></div>
           <div class="form-group"><label class="form-label">Teléfono</label><input type="text" class="form-input" id="em-tel" value="${esc(m.telefono||'')}"></div>
-          <div class="form-group"><label class="form-label">Nacionalidad</label><input type="text" class="form-input" id="em-nac" value="${esc(m.nacionalidad||'')}"></div>
+          <div class="form-group"><label class="form-label">Fecha de nacimiento</label><input type="date" class="form-input" id="em-fnac" value="${esc(m.fechaNacimiento||m.fnac||'')}"></div>
+          <div class="form-group"><label class="form-label">Fecha de expiración</label><input type="date" class="form-input" id="em-fexp" value="${esc(m.fechaExpiracion||m.expDoc||'')}"></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:16px">
           <button type="button" class="btn btn-secondary" style="width:auto" onclick="closeBookingModal()">Cancelar</button>
@@ -3596,9 +3597,10 @@ async function submitEditMember(e, id) {
       apellido: `${ape1}${ape2 ? ' ' + ape2 : ''}`,
       apellido1: ape1,
       apellido2: ape2,
-      email: val('em-email'),
       telefono: val('em-tel'),
-      nacionalidad: val('em-nac'),
+      dni: val('em-dni'),
+      fechaNacimiento: val('em-fnac'),
+      fechaExpiracion: val('em-fexp'),
     };
     state.members[idx] = { ...state.members[idx], ...changes };
     api('PUT', `/members/${id}`, changes).catch(e => console.error('Error guardando miembro:', e));
