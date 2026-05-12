@@ -9,8 +9,23 @@ require('dotenv').config();
 
 const express = require('express');
 const cors    = require('cors');
+const helmet  = require('helmet');
 const nodemailer = require('nodemailer');
 const path       = require('path');
+
+const {
+  escHtml,
+  sanitizeText,
+  validate,
+  idParam,
+  authLogin,
+  authActivate,
+  authInvitation,
+  adminInvite,
+  timetables,
+  bookingNotify,
+  crudBody,
+} = require('./sanitize');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -36,16 +51,16 @@ async function sendBookingEmail(booking) {
     ? vehiclesList.map((v, i) => {
         const driverIdx = v.driverPassengerIndex;
         const driverName = (typeof driverIdx === 'number' && passengersList[driverIdx])
-          ? `${passengersList[driverIdx].nombre || ''} ${passengersList[driverIdx].apellido1 || ''}`.trim()
+          ? escHtml(`${passengersList[driverIdx].nombre || ''} ${passengersList[driverIdx].apellido1 || ''}`.trim())
           : '';
         return `
       <tr><td colspan="2" style="padding:10px 0 4px;font-weight:700;font-size:14px;color:#1a56db">Vehículo ${i + 1}</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;width:35%">Marca</td><td style="padding:4px 0;font-weight:600">${v.marca || ''}</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280">Modelo</td><td style="padding:4px 0;font-weight:600">${v.modelo || ''}</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280">Matrícula</td><td style="padding:4px 0;font-weight:600">${v.matricula || ''}</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280">Largo</td><td style="padding:4px 0">${v.largo || ''} m</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280">Ancho</td><td style="padding:4px 0">${v.ancho || ''} m</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280">Alto</td><td style="padding:4px 0">${v.alto || ''} m</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;width:35%">Marca</td><td style="padding:4px 0;font-weight:600">${escHtml(v.marca)}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Modelo</td><td style="padding:4px 0;font-weight:600">${escHtml(v.modelo)}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Matrícula</td><td style="padding:4px 0;font-weight:600">${escHtml(v.matricula)}</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Largo</td><td style="padding:4px 0">${escHtml(v.largo)} m</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Ancho</td><td style="padding:4px 0">${escHtml(v.ancho)} m</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280">Alto</td><td style="padding:4px 0">${escHtml(v.alto)} m</td></tr>
       ${driverName ? `<tr><td style="padding:4px 0;color:#6b7280">Conductor</td><td style="padding:4px 0;font-weight:600">${driverName}</td></tr>` : ''}
     `;
       }).join('')
@@ -58,17 +73,17 @@ async function sendBookingEmail(booking) {
       ? (drivenVehicleIdx >= 0 ? ` — Conductor Del Vehículo ${drivenVehicleIdx + 1}` : ' — Conductor')
       : '';
     return `
-    <tr><td colspan="2" style="padding:10px 0 4px;font-weight:700;font-size:14px;color:#1a56db">Pasajero ${i + 1}${driverLabel}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280;width:35%">Nombre</td><td style="padding:4px 0;font-weight:600">${p.nombre || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Primer Apellido</td><td style="padding:4px 0">${p.apellido1 || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Segundo Apellido</td><td style="padding:4px 0">${p.apellido2 || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Tipo De Documento</td><td style="padding:4px 0">${p.tipoDoc || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Número De Documento</td><td style="padding:4px 0;font-weight:600">${p.numDoc || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Fecha De Expiración</td><td style="padding:4px 0">${p.expDoc || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Email</td><td style="padding:4px 0">${p.email || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Teléfono</td><td style="padding:4px 0">${p.telefono || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Fecha De Nacimiento</td><td style="padding:4px 0">${p.fnac || ''}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Nacionalidad</td><td style="padding:4px 0">${p.nacionalidad || ''}</td></tr>
+    <tr><td colspan="2" style="padding:10px 0 4px;font-weight:700;font-size:14px;color:#1a56db">Pasajero ${i + 1}${escHtml(driverLabel)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280;width:35%">Nombre</td><td style="padding:4px 0;font-weight:600">${escHtml(p.nombre)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Primer Apellido</td><td style="padding:4px 0">${escHtml(p.apellido1)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Segundo Apellido</td><td style="padding:4px 0">${escHtml(p.apellido2)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Tipo De Documento</td><td style="padding:4px 0">${escHtml(p.tipoDoc)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Número De Documento</td><td style="padding:4px 0;font-weight:600">${escHtml(p.numDoc)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Fecha De Expiración</td><td style="padding:4px 0">${escHtml(p.expDoc)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Email</td><td style="padding:4px 0">${escHtml(p.email)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Teléfono</td><td style="padding:4px 0">${escHtml(p.telefono)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Fecha De Nacimiento</td><td style="padding:4px 0">${escHtml(p.fnac)}</td></tr>
+    <tr><td style="padding:4px 0;color:#6b7280">Nacionalidad</td><td style="padding:4px 0">${escHtml(p.nacionalidad)}</td></tr>
   `;
   }).join('');
 
@@ -76,30 +91,30 @@ async function sendBookingEmail(booking) {
 <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff">
   <div style="background:linear-gradient(135deg,#1a56db,#2563eb);padding:28px;text-align:center">
     <h1 style="color:white;font-size:22px;margin:0">ALSA — Nueva Reserva</h1>
-    <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px">${b.origin || ''} → ${b.destination || ''}</p>
+      <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px">${escHtml(b.origin)} → ${escHtml(b.destination)}</p>
   </div>
   <div style="padding:24px">
 
     <h3 style="color:#1a56db;margin-top:0;border-bottom:1px solid #eee;padding-bottom:8px;font-size:15px">Detalles Del Viaje</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><td style="padding:6px 0;color:#6b7280;width:35%">Tipo De Viaje</td><td style="padding:6px 0;font-weight:600">${idaVuelta ? 'Ida y vuelta' : 'Solo ida'}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280">Origen</td><td style="padding:6px 0;font-weight:600">${b.origin || ''}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280">Destino</td><td style="padding:6px 0;font-weight:600">${b.destination || ''}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280">Naviera</td><td style="padding:6px 0;font-weight:600">${b.naviera || ''}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280">Fecha De Salida</td><td style="padding:6px 0;font-weight:600">${b.departureDate || ''}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280">Hora De Salida</td><td style="padding:6px 0;font-weight:600">${b.departureTime || ''}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;width:35%">Tipo De Viaje</td><td style="padding:6px 0;font-weight:600">${escHtml(idaVuelta ? 'Ida y vuelta' : 'Solo ida')}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Origen</td><td style="padding:6px 0;font-weight:600">${escHtml(b.origin)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Destino</td><td style="padding:6px 0;font-weight:600">${escHtml(b.destination)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Naviera</td><td style="padding:6px 0;font-weight:600">${escHtml(b.naviera)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Fecha De Salida</td><td style="padding:6px 0;font-weight:600">${escHtml(b.departureDate)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Hora De Salida</td><td style="padding:6px 0;font-weight:600">${escHtml(b.departureTime)}</td></tr>
       ${idaVuelta ? `
-      <tr><td style="padding:6px 0;color:#6b7280">Fecha De Vuelta</td><td style="padding:6px 0;font-weight:600">${b.returnDate || ''}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280">Hora De Vuelta</td><td style="padding:6px 0;font-weight:600">${b.returnTime || ''}</td></tr>` : ''}
-      <tr><td style="padding:6px 0;color:#6b7280">Estado</td><td style="padding:6px 0;font-weight:600">${b.estado || 'Pendiente'}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Fecha De Vuelta</td><td style="padding:6px 0;font-weight:600">${escHtml(b.returnDate)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">Hora De Vuelta</td><td style="padding:6px 0;font-weight:600">${escHtml(b.returnTime)}</td></tr>` : ''}
+      <tr><td style="padding:6px 0;color:#6b7280">Estado</td><td style="padding:6px 0;font-weight:600">${escHtml(b.estado || 'Pendiente')}</td></tr>
     </table>
 
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px;font-size:15px">Pasajeros (${passengersList.length})</h3>
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px;font-size:15px">Pasajeros (${escHtml(passengersList.length)})</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${passengersHtml}
     </table>
 
-    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px;font-size:15px">Vehículos (${vehiclesList.length})</h3>
+    <h3 style="color:#1a56db;border-bottom:1px solid #eee;padding-bottom:8px;margin-top:24px;font-size:15px">Vehículos (${escHtml(vehiclesList.length)})</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${vehiclesHtml}
     </table>
@@ -114,7 +129,7 @@ async function sendBookingEmail(booking) {
   await mailer.sendMail({
     from: `"ALSA Reservas" <${process.env.GMAIL_USER}>`,
     to:   process.env.NOTIFICATION_EMAIL || process.env.GMAIL_USER,
-    subject: `[ALSA] Nueva reserva — ${b.origin || ''} → ${b.destination || ''} · ${b.naviera || ''} · ${b.departureDate || ''}`,
+    subject: `[ALSA] Nueva reserva — ${escHtml(b.origin)} → ${escHtml(b.destination)} · ${escHtml(b.naviera)} · ${escHtml(b.departureDate)}`,
     html,
   });
 }
@@ -167,11 +182,6 @@ async function sendInviteEmail(email, usuario, nombre, token) {
   });
 }
 
-function escHtml(text) {
-  if (!text) return '';
-  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 // ============================================================
 // MIDDLEWARE GLOBAL
 // ============================================================
@@ -183,6 +193,7 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -202,10 +213,6 @@ function ok(res, data, status = 200) {
 
 function fail(res, message, status = 400) {
   res.status(status).json({ error: message });
-}
-
-function isValidDate(v) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(v || '');
 }
 
 // ============================================================
@@ -248,85 +255,81 @@ app.get('/api/data', async (_req, res) => {
   }
 });
 
-app.post('/api/bookings', async (req, res) => {
+app.post('/api/bookings', crudBody(), async (req, res) => {
   try { const row = await db.insertRow('bookings', req.body); ok(res, row, 201); }
   catch (err) { console.error('[DB] booking insert:', err); fail(res, err.message, 400); }
 });
-app.put('/api/bookings/:id', async (req, res) => {
+app.put('/api/bookings/:id', idParam, crudBody(), async (req, res) => {
   try { const row = await db.updateRow('bookings', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Reserva no encontrada', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.delete('/api/bookings/:id', async (req, res) => {
+app.delete('/api/bookings/:id', idParam, async (req, res) => {
   try { const n = await db.deleteRow('bookings', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Reserva no encontrada', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
 
-app.post('/api/members', async (req, res) => {
+app.post('/api/members', crudBody(), async (req, res) => {
   try { const row = await db.insertRow('members', req.body); ok(res, row, 201); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.put('/api/members/:id', async (req, res) => {
+app.put('/api/members/:id', idParam, crudBody(), async (req, res) => {
   try { const row = await db.updateRow('members', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Miembro no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.delete('/api/members/:id', async (req, res) => {
+app.delete('/api/members/:id', idParam, async (req, res) => {
   try { const n = await db.deleteRow('members', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Miembro no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
 
-app.post('/api/vehicles', async (req, res) => {
+app.post('/api/vehicles', crudBody(), async (req, res) => {
   try { const row = await db.insertRow('vehicles', req.body); ok(res, row, 201); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.put('/api/vehicles/:id', async (req, res) => {
+app.put('/api/vehicles/:id', idParam, crudBody(), async (req, res) => {
   try { const row = await db.updateRow('vehicles', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Vehículo no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.delete('/api/vehicles/:id', async (req, res) => {
+app.delete('/api/vehicles/:id', idParam, async (req, res) => {
   try { const n = await db.deleteRow('vehicles', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Vehículo no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
 
-app.post('/api/invoices', async (req, res) => {
+app.post('/api/invoices', crudBody(), async (req, res) => {
   try { const row = await db.insertRow('invoices', req.body); ok(res, row, 201); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.put('/api/invoices/:id', async (req, res) => {
+app.put('/api/invoices/:id', idParam, crudBody(), async (req, res) => {
   try { const row = await db.updateRow('invoices', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Factura no encontrada', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.delete('/api/invoices/:id', async (req, res) => {
+app.delete('/api/invoices/:id', idParam, async (req, res) => {
   try { const n = await db.deleteRow('invoices', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Factura no encontrada', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
 
-app.post('/api/administrators', async (req, res) => {
+app.post('/api/administrators', crudBody(), async (req, res) => {
   try { const row = await db.insertRow('administrators', req.body); ok(res, row, 201); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.put('/api/administrators/:id', async (req, res) => {
+app.put('/api/administrators/:id', idParam, crudBody(), async (req, res) => {
   try { const row = await db.updateRow('administrators', +req.params.id, req.body); row ? ok(res, row) : fail(res, 'Administrador no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.delete('/api/administrators/:id', async (req, res) => {
+app.delete('/api/administrators/:id', idParam, async (req, res) => {
   try { const n = await db.deleteRow('administrators', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Administrador no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
 
 // ── INVITE ADMINISTRATOR (envía correo real) ──
-app.post('/api/administrators/invite', async (req, res) => {
+app.post('/api/administrators/invite', adminInvite, validate, async (req, res) => {
   try {
     const { email, usuario, nombre, inviterUserId } = req.body;
 
     // Solo el super_admin puede invitar
-    if (!inviterUserId) return fail(res, 'No autorizado: se requiere identificación del administrador.', 403);
     const { rows: inviterRows } = await db.query('SELECT role FROM users WHERE id = $1 AND is_active = TRUE', [inviterUserId]);
     if (inviterRows.length === 0 || inviterRows[0].role !== 'super_admin') {
       return fail(res, 'Solo el administrador principal puede enviar invitaciones.', 403);
     }
-    if (!email || !usuario) return fail(res, 'Email y usuario son obligatorios.', 400);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(res, 'Email no válido.', 400);
-    if (usuario.length < 3) return fail(res, 'El usuario debe tener al menos 3 caracteres.', 400);
 
     // Verificar email duplicado
     const { rows: dupEmail } = await db.query(
@@ -368,7 +371,7 @@ app.post('/api/administrators/invite', async (req, res) => {
 });
 
 // ── VALIDATE INVITATION TOKEN ──
-app.get('/api/auth/invitation/:token', async (req, res) => {
+app.get('/api/auth/invitation/:token', authInvitation, validate, async (req, res) => {
   try {
     const { token } = req.params;
     const { rows } = await db.query(
@@ -394,11 +397,9 @@ app.get('/api/auth/invitation/:token', async (req, res) => {
 });
 
 // ── ACTIVATE ACCOUNT (set password) ──
-app.post('/api/auth/activate', async (req, res) => {
+app.post('/api/auth/activate', authActivate, validate, async (req, res) => {
   try {
     const { token, password } = req.body;
-    if (!token || !password) return fail(res, 'Token y contraseña son obligatorios.', 400);
-    if (password.length < 8) return fail(res, 'La contraseña debe tener al menos 8 caracteres.', 400);
 
     const { rows } = await db.query(
       'SELECT id, nombre, email, usuario, invite_token, invite_token_expires FROM administrators WHERE invite_token = $1',
@@ -439,11 +440,11 @@ app.post('/api/auth/activate', async (req, res) => {
   }
 });
 
-app.post('/api/frequent-passengers', async (req, res) => {
+app.post('/api/frequent-passengers', crudBody(), async (req, res) => {
   try { const row = await db.insertRow('frequent_passengers', req.body); ok(res, row, 201); }
   catch (err) { fail(res, err.message, 400); }
 });
-app.delete('/api/frequent-passengers/:id', async (req, res) => {
+app.delete('/api/frequent-passengers/:id', idParam, async (req, res) => {
   try { const n = await db.deleteRow('frequent_passengers', +req.params.id); n ? ok(res, { deleted: n }) : fail(res, 'Pasajero no encontrado', 404); }
   catch (err) { fail(res, err.message, 400); }
 });
@@ -535,12 +536,9 @@ app.get('/api/routes', async (_req, res) => {
 // ============================================================
 // ROUTE AVAILABILITIES
 // ============================================================
-app.get('/api/routes/:id/availabilities', async (req, res) => {
-  const routeId = req.params.id;
-  if (!routeId) return fail(res, 'Route ID es obligatorio.');
-
+app.get('/api/routes/:id/availabilities', idParam, async (req, res) => {
   try {
-    const availRes = await fetchKikoto(`/routes/${routeId}/availabilities`);
+    const availRes = await fetchKikoto(`/routes/${req.params.id}/availabilities`);
     const availabilities = availRes.data || availRes || [];
     ok(res, Array.isArray(availabilities) ? availabilities : []);
   } catch (err) {
@@ -552,12 +550,8 @@ app.get('/api/routes/:id/availabilities', async (req, res) => {
 // ============================================================
 // TIMETABLES
 // ============================================================
-app.post('/api/timetables', async (req, res) => {
+app.post('/api/timetables', timetables, validate, async (req, res) => {
   const { departure_port_id, destination_port_id, date } = req.body;
-  if (!departure_port_id || !destination_port_id || !date)
-    return fail(res, 'departure_port_id, destination_port_id y date son obligatorios.');
-  if (!isValidDate(date))
-    return fail(res, 'Formato de fecha inválido (YYYY-MM-DD).');
 
   try {
     // Find route matching the port IDs
@@ -617,10 +611,9 @@ const db = require('./db');
 // ============================================================
 // AUTH
 // ============================================================
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLogin, validate, async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return fail(res, 'Email y contraseña son obligatorios.');
 
     const bcrypt = require('bcryptjs');
     const { rows } = await db.query('SELECT * FROM users WHERE email = $1 AND is_active = TRUE', [email]);
@@ -643,11 +636,8 @@ app.post('/api/auth/login', async (req, res) => {
 // ============================================================
 // BOOKING NOTIFICATION — envía email al confirmar reserva
 // ============================================================
-app.post('/api/bookings/notify', async (req, res) => {
+app.post('/api/bookings/notify', bookingNotify, validate, async (req, res) => {
   const b = req.body;
-  if (!b || !b.origin || !b.destination) {
-    return fail(res, 'Datos de reserva incompletos.');
-  }
 
   try {
     await sendBookingEmail(b);
