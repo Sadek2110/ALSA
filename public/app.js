@@ -1912,9 +1912,9 @@ function renderVehicleBlock(idx) {
         <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius-full);background:var(--primary);color:#fff;font-weight:700;font-size:0.8125rem">${idx + 1}</span>
         <div style="font-weight:700;font-size:0.9375rem;color:var(--gray-900)">Vehículo ${idx + 1}</div>
       </div>
-      ${wz.vehicles.length > 1 ? `<button type="button" class="btn-icon-danger" onclick="removeVehicleBlock(${idx})" title="Eliminar vehículo">
+      <button type="button" class="btn-icon-danger" onclick="removeVehicleBlock(${idx})" title="Eliminar vehículo">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>` : ''}
+      </button>
     </div>
 
     <div class="veh-mode-selector" style="margin-bottom:16px">
