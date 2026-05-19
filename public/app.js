@@ -1405,31 +1405,35 @@ function showWizStep3() {
           </label>
         </div>
 
-        <div id="vehicle-section" style="display:none;margin:0 0 20px;padding:16px;background:#f0f9ff;border:2px solid #38bdf8;border-radius:var(--radius)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.875rem;color:#0369a1">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-              Datos del vehículo
-            </div>
-            <button type="button" class="btn-icon-danger" onclick="hideVehicleSection()" title="Cerrar">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <div id="vehicle-form-container"></div>
-        </div>
-
-        <div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--gray-100)">
-          <button type="submit" class="btn btn-secondary" style="width:auto;padding:11px 24px">
+        <div style="padding-top:10px;border-top:1px solid var(--gray-100)">
+          <button type="submit" class="btn btn-primary" style="width:auto;padding:11px 24px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Añadir pasajero
           </button>
+        </div>
+      </form>
 
-          <button type="button" class="btn btn-outline" style="width:auto;padding:11px 20px" onclick="addVehicleForNewPassenger()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <!-- Sección vehículos — fuera del form de pasajeros -->
+      <div style="margin-top:24px;padding:18px 20px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.875rem;color:var(--gray-700)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Vehículos en esta reserva
+            ${(wz.vehicles && wz.vehicles.length > 0) ? `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:var(--primary);color:#fff;border-radius:10px;font-size:0.6875rem;font-weight:700">${wz.vehicles.length}</span>` : ''}
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" style="width:auto${wz.passengers.length === 0 ? ';opacity:0.45;cursor:not-allowed' : ''}" onclick="tryAddVehicle()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Añadir vehículo
           </button>
         </div>
-      </form>
+        <span class="error-msg" id="e-vehicles-general" style="display:block;margin-bottom:6px"></span>
+        <div id="vehicle-section" style="display:${(wz.vehicles && wz.vehicles.length > 0) ? 'block' : 'none'}">
+          <div id="vehicle-form-container">${(wz.vehicles && wz.vehicles.length > 0) ? `<div id="vehicle-blocks-wrapper">${wz.vehicles.map((_, vi) => renderVehicleBlock(vi)).join('')}</div>` : ''}</div>
+        </div>
+        <div id="no-vehicles-hint" style="display:${(!wz.vehicles || wz.vehicles.length === 0) ? 'block' : 'none'};text-align:center;padding:20px 16px;color:var(--gray-400);font-size:0.8125rem;font-style:italic">
+          ${wz.passengers.length === 0 ? 'Añade primero un pasajero para poder añadir vehículos.' : 'Sin vehículos. Si necesitas embarcar un coche, moto o furgoneta pulsa \"Añadir vehículo\".'}
+        </div>
+      </div>
 
       ${wz.passengers.length > 0 ? `
       <div style="margin-top:28px;padding:20px 24px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
@@ -1490,6 +1494,22 @@ function showVehicleForm(passengerIndex) {
   const blocks = wz.vehicles.map((_, idx) => renderVehicleBlock(idx)).join('');
   container.innerHTML = `<div id="vehicle-blocks-wrapper">${blocks}</div>`;
   section.style.display = 'block';
+  const hint = $('no-vehicles-hint');
+  if (hint) hint.style.display = 'none';
+  const genErr = $('e-vehicles-general');
+  if (genErr) { genErr.textContent = ''; genErr.classList.remove('visible'); }
+}
+
+function tryAddVehicle() {
+  const wz = state.bookingWizard;
+  if (!wz || wz.passengers.length === 0) {
+    const genErr = $('e-vehicles-general');
+    if (genErr) { genErr.textContent = 'Añade primero al menos un pasajero.'; genErr.classList.add('visible'); }
+    return;
+  }
+  const genErr = $('e-vehicles-general');
+  if (genErr) { genErr.textContent = ''; genErr.classList.remove('visible'); }
+  addVehicleForNewPassenger();
 }
 
 function addVehicleForNewPassenger() {
@@ -1517,6 +1537,8 @@ function hideVehicleSection() {
   persistAllVehicleBlocks();
   const section = $('vehicle-section');
   if (section) section.style.display = 'none';
+  const hint = $('no-vehicles-hint');
+  if (hint) hint.style.display = 'block';
 }
 
 function removeWizPassenger(idx) {
@@ -1681,22 +1703,37 @@ async function addPassengerAction(e) {
 function finalizePassengerStep() {
   const wz = state.bookingWizard;
   if (!wz || wz.passengers.length === 0) {
-    showToast('warning','Sin pasajeros','Añade al menos un pasajero antes de continuar.');
+    showToast('warning', 'Sin pasajeros', 'Añade al menos un pasajero antes de continuar.');
     return;
   }
   persistAllVehicleBlocks();
   if (wz.vehicles && wz.vehicles.length > 0) {
-    const unassigned = wz.vehicles.filter(v => typeof v.driverPassengerIndex !== 'number' || v.driverPassengerIndex < 0 || v.driverPassengerIndex >= wz.passengers.length);
-    if (unassigned.length > 0) {
-      showToast('warning','Conductor sin asignar','Todos los vehículos deben tener un conductor asignado. Selecciona un conductor para cada vehículo.');
-      showVehicleForm();
-      return;
-    }
+    let hasErrors = false;
+    const vs = $('vehicle-section');
+    const hint = $('no-vehicles-hint');
+    if (vs) vs.style.display = 'block';
+    if (hint) hint.style.display = 'none';
+    const genErr = $('e-vehicles-general');
+    if (genErr) { genErr.textContent = ''; genErr.classList.remove('visible'); }
+
     const driverIndices = wz.vehicles.map(v => v.driverPassengerIndex);
-    const duplicates = driverIndices.filter((idx, i) => driverIndices.indexOf(idx) !== i);
-    if (duplicates.length > 0) {
-      showToast('warning','Conductor duplicado','Cada vehículo debe tener un conductor diferente. Un pasajero no puede conducir dos vehículos.');
-      showVehicleForm();
+    wz.vehicles.forEach((v, idx) => {
+      const di = v.driverPassengerIndex;
+      const noDriver = typeof di !== 'number' || isNaN(di) || di < 0 || di >= wz.passengers.length;
+      const dupDriver = !noDriver && driverIndices.filter(d => d === di).length > 1;
+      if (noDriver) {
+        fieldErr(`e-veh-driver-${idx}`, `veh-driver-${idx}`, 'Selecciona un conductor para este vehículo.');
+        hasErrors = true;
+      } else if (dupDriver) {
+        fieldErr(`e-veh-driver-${idx}`, `veh-driver-${idx}`, 'Este conductor ya está asignado a otro vehículo.');
+        hasErrors = true;
+      } else {
+        fieldOk(`e-veh-driver-${idx}`, `veh-driver-${idx}`);
+      }
+    });
+
+    if (hasErrors) {
+      if (vs) vs.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
   }
