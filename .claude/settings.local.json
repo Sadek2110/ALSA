@@ -8,7 +8,9 @@
       "Bash(python fix_vehicles.py)",
       "Bash(python3 *)",
       "Bash(del fix_vehicles.py)",
-      "Bash(del *)"
+      "Bash(del *)",
+      "Bash(node --check public/app.js)",
+      "Bash(node *)"
     ]
   }
 }

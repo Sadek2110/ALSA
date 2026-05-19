@@ -1530,7 +1530,7 @@ function showWizStep3() {
           </div>
           <button type="button" onclick="tryAddVehicle()"
             style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:${wz.passengers.length === 0 ? '#9ca3af' : '#16a34a'};color:#fff;border:none;border-radius:var(--radius);font-size:0.8125rem;font-weight:700;cursor:${wz.passengers.length === 0 ? 'not-allowed' : 'pointer'};box-shadow:${wz.passengers.length === 0 ? 'none' : '0 2px 8px rgba(22,163,74,0.3)'};transition:all 0.15s"
-            ${wz.passengers.length > 0 ? 'onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'"' : ''}>
+            ${wz.passengers.length > 0 ? `onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'"` : ''}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             + Añadir vehículo
           </button>
