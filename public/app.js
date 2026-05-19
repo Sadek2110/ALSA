@@ -1221,14 +1221,107 @@ function selectSailing(idx) {
 }
 
 // ── Paso 3: Datos del pasajero ───────────────────────────────
+// Fusiona frequentPassengers + members en formato fp unificado
+function getMergedFp() {
+  const fp = (state.frequentPassengers || []).map(p => ({ ...p, _source: 'frecuente' }));
+  const seenDocs = new Set(fp.map(p => p.numDoc));
+  const fromMembers = (state.members || [])
+    .filter(m => m.dni && !seenDocs.has(m.dni))
+    .map(m => ({
+      nombre:      m.nombre || '',
+      apellido1:   m.apellido1 || (m.apellido ? m.apellido.split(' ')[0] : ''),
+      apellido2:   m.apellido2 || (m.apellido ? m.apellido.split(' ').slice(1).join(' ') : '') || '',
+      email:       m.email || '',
+      telefono:    m.telefono || '',
+      fnac:        m.fechaNacimiento || '',
+      nacionalidad: '',
+      tipoDoc:     'DNI',
+      numDoc:      m.dni || '',
+      expDoc:      m.fechaExpiracion || '',
+      _source:     'miembro',
+    }));
+  return [...fp, ...fromMembers];
+}
+
+function renderFpChips(list, query) {
+  const q = (query || '').toLowerCase().trim();
+  const filtered = q
+    ? list.filter(p => `${p.nombre} ${p.apellido1} ${p.apellido2||''} ${p.numDoc} ${p.email||''}`.toLowerCase().includes(q))
+    : list;
+  if (!filtered.length) {
+    return `<div style="text-align:center;padding:12px;color:#9a3412;font-size:0.8rem;font-style:italic">Sin resultados para "${esc(query)}"</div>`;
+  }
+  return filtered.map((p, i) => {
+    const realIdx = list.indexOf(p);
+    const isMember = p._source === 'miembro';
+    const avatarBg = isMember ? '#0369a1' : '#ea580c';
+    const chipBorder = isMember ? '#bae6fd' : '#fed7aa';
+    const chipHoverBg = isMember ? '#e0f2fe' : '#ffedd5';
+    const chipHoverBorder = isMember ? '#0ea5e9' : '#f97316';
+    const badgeBg = isMember ? '#0369a1' : '#ea580c';
+    const badgeLabel = isMember ? 'Miembro' : 'Frecuente';
+    const initials = (esc(p.nombre[0]||'')+esc((p.apellido1||'')[0]||'')).toUpperCase();
+    return `<button type="button" onclick="selectMergedFp(${realIdx})"
+      style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:white;border:1.5px solid ${chipBorder};border-radius:var(--radius);cursor:pointer;font-size:0.8125rem;color:#1f2937;font-weight:600;transition:all 0.15s;text-align:left;width:100%"
+      onmouseover="this.style.background='${chipHoverBg}';this.style.borderColor='${chipHoverBorder}'"
+      onmouseout="this.style.background='white';this.style.borderColor='${chipBorder}'">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:${avatarBg};border-radius:50%;color:#fff;font-size:0.65rem;font-weight:700;flex-shrink:0">${initials}</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.nombre)} ${esc(p.apellido1)}${p.apellido2 ? ' '+esc(p.apellido2) : ''}</span>
+        <span style="display:block;font-size:0.7rem;font-weight:400;color:#6b7280">${esc(p.tipoDoc||'DNI')} ${esc(p.numDoc||'')}</span>
+      </span>
+      <span style="display:inline-flex;align-items:center;padding:2px 7px;background:${badgeBg};color:#fff;border-radius:8px;font-size:0.6rem;font-weight:700;flex-shrink:0;white-space:nowrap">${badgeLabel}</span>
+    </button>`;
+  }).join('');
+}
+
+// Filtra chips en tiempo real sin re-renderizar todo el paso
+function filterWizFp(query) {
+  const container = $('fp-chips-container');
+  if (!container) return;
+  const list = getMergedFp();
+  container.innerHTML = renderFpChips(list, query);
+}
+
+// Selecciona pasajero del merged list y lo añade directamente
+function selectMergedFp(idx) {
+  const list = getMergedFp();
+  const p = list[idx];
+  if (!p) return;
+  const wz = state.bookingWizard;
+  if (!wz) return;
+
+  const errFp = $('e-fp-search');
+  if (errFp) { errFp.textContent = ''; errFp.classList.remove('visible'); }
+
+  if (wz.passengers.some(ex => ex.numDoc === p.numDoc)) {
+    if (errFp) { errFp.textContent = 'Este pasajero ya está en la reserva.'; errFp.classList.add('visible'); }
+    return;
+  }
+
+  persistAllVehicleBlocks();
+  const newPaxIdx = wz.passengers.length;
+  if (Array.isArray(wz.vehicles)) {
+    wz.vehicles.forEach(v => { if (v.driverPassengerIndex === -1) v.driverPassengerIndex = newPaxIdx; });
+  }
+
+  wz.passengers.push({
+    nombre: p.nombre, apellido1: p.apellido1, apellido2: p.apellido2 || '',
+    email: p.email || '', telefono: p.telefono || '',
+    fnac: p.fnac || '', nacionalidad: p.nacionalidad || '',
+    tipoDoc: p.tipoDoc || 'DNI', numDoc: p.numDoc, expDoc: p.expDoc || '',
+  });
+
+  showToast('success', 'Pasajero añadido', `${p.nombre} ${p.apellido1} añadido a la reserva.`);
+  showWizStep3();
+}
+
 function showWizStep3() {
   const wz = state.bookingWizard;
   if (!wz) return;
   renderWizStepBar(3);
   const content = $('wiz-content');
   if (!content) return;
-  const fp = state.frequentPassengers;
-  
   // Lista de pasajeros añadidos con sus vehículos
   const paxListHtml = wz.passengers.length > 0 ? `
     <div class="pax-list-container" style="margin-bottom:24px;padding:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--radius)">
@@ -1281,11 +1374,12 @@ function showWizStep3() {
     </div>
   ` : '';
 
-  const vehiclesInfoHtml = (wz.vehicles && wz.vehicles.length > 0) ? `
-    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:var(--radius);margin-bottom:20px;font-size:0.875rem;color:#0369a1">
+  const _vcount = (wz.vehicles && wz.vehicles.length) || 0;
+  const vehiclesInfoHtml = `
+    <div id="veh-count-banner" style="display:${_vcount > 0 ? 'flex' : 'none'};align-items:center;gap:8px;padding:12px 16px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:var(--radius);margin-bottom:20px;font-size:0.875rem;color:#0369a1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-      <span><strong>${wz.vehicles.length} vehículo(s)</strong> añadido(s) a esta reserva</span>
-    </div>` : '';
+      <span id="veh-count-text"><strong>${_vcount} vehículo${_vcount === 1 ? '' : 's'}</strong> añadido${_vcount === 1 ? '' : 's'} a esta reserva</span>
+    </div>`;
 
   content.innerHTML = `
     <div class="card">
@@ -1305,47 +1399,35 @@ function showWizStep3() {
       ${vehiclesInfoHtml}
       ${paxListHtml}
 
-      ${fp.length > 0 ? `
-      <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%);border:2px solid #8b5cf6;padding:18px 20px;border-radius:var(--radius);margin-bottom:20px;box-shadow:0 2px 8px rgba(139,92,246,0.12)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.9rem;color:#6d28d9">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#7c3aed;border-radius:50%;flex-shrink:0">
+      ${(() => {
+        const merged = getMergedFp();
+        if (!merged.length) return '';
+        return `
+      <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%);border:2px solid #f97316;padding:18px 20px;border-radius:var(--radius);margin-bottom:20px;box-shadow:0 4px 12px rgba(249,115,22,0.18)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.9rem;color:#c2410c">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#ea580c;border-radius:50%;flex-shrink:0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </span>
-            Pasajeros frecuentes
+            Pasajeros y miembros
           </div>
-          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#7c3aed;color:#fff;border-radius:11px;font-size:0.7rem;font-weight:700">${fp.length}</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#ea580c;color:#fff;border-radius:11px;font-size:0.7rem;font-weight:700">${merged.length}</span>
         </div>
-        <p style="font-size:0.78rem;color:#5b21b6;margin:0 0 12px;font-weight:500">
-          Haz clic en un pasajero para añadirlo directamente a la reserva
-        </p>
-        ${fp.length <= 6 ? `
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-          ${fp.map((p, i) => `
-          <button type="button" onclick="selectFrequentPax(${i})"
-            style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:white;border:1.5px solid #c4b5fd;border-radius:var(--radius);cursor:pointer;font-size:0.8125rem;color:#4c1d95;font-weight:600;transition:all 0.15s;text-align:left"
-            onmouseover="this.style.background='#ede9fe';this.style.borderColor='#7c3aed'"
-            onmouseout="this.style.background='white';this.style.borderColor='#c4b5fd'">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#7c3aed;border-radius:50%;color:#fff;font-size:0.65rem;font-weight:700;flex-shrink:0">${esc(p.nombre[0]||'').toUpperCase()}${esc((p.apellido1||'')[0]||'').toUpperCase()}</span>
-            <span>
-              <span style="display:block">${esc(p.nombre)} ${esc(p.apellido1)}</span>
-              <span style="display:block;font-size:0.7rem;font-weight:400;color:#7c3aed;opacity:0.8">${esc(p.tipoDoc||'')} ${esc(p.numDoc||'')}</span>
-            </span>
-          </button>`).join('')}
-        </div>` : `
-        <div style="position:relative">
-          <input type="text" class="form-input" id="fp-search" value="" placeholder="Buscar por nombre, apellido o documento..." autocomplete="off"
-            style="border-color:#8b5cf6;background:white"
-            oninput="filterFrequentPax(this)" onfocus="filterFrequentPax(this)" onblur="setTimeout(()=>hideDropdown('drop-fp'),180)">
-          <div class="route-dropdown" id="drop-fp"></div>
-        </div>`}
-        <span class="error-msg" id="e-fp-search"></span>
+        <p style="font-size:0.78rem;color:#9a3412;margin:0 0 10px;font-weight:500">Haz clic para añadir directamente · <span style="opacity:0.7">🟠 Frecuente &nbsp; 🔵 Miembro</span></p>
+        <input type="text" class="form-input" id="fp-search" placeholder="Buscar por nombre, apellido o documento..." autocomplete="off"
+          style="border-color:#f97316;background:white;margin-bottom:10px"
+          oninput="filterWizFp(this.value)">
+        <div id="fp-chips-container" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto">
+          ${renderFpChips(merged, '')}
+        </div>
+        <span class="error-msg" id="e-fp-search" style="margin-top:4px;display:block"></span>
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
         <div style="flex:1;height:1px;background:var(--gray-200)"></div>
         <span style="font-size:0.75rem;color:var(--gray-400);white-space:nowrap;font-weight:500">O añade manualmente</span>
         <div style="flex:1;height:1px;background:var(--gray-200)"></div>
-      </div>` : ''}
+      </div>`;
+      })()}
 
       <form id="wiz-pax-form" onsubmit="addPassengerAction(event)" novalidate>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #dbeafe">
@@ -1446,9 +1528,11 @@ function showWizStep3() {
             Vehículos en esta reserva
             ${(wz.vehicles && wz.vehicles.length > 0) ? `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:var(--primary);color:#fff;border-radius:10px;font-size:0.6875rem;font-weight:700">${wz.vehicles.length}</span>` : ''}
           </div>
-          <button type="button" class="btn btn-outline btn-sm" style="width:auto${wz.passengers.length === 0 ? ';opacity:0.45;cursor:not-allowed' : ''}" onclick="tryAddVehicle()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Añadir vehículo
+          <button type="button" onclick="tryAddVehicle()"
+            style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:${wz.passengers.length === 0 ? '#9ca3af' : '#16a34a'};color:#fff;border:none;border-radius:var(--radius);font-size:0.8125rem;font-weight:700;cursor:${wz.passengers.length === 0 ? 'not-allowed' : 'pointer'};box-shadow:${wz.passengers.length === 0 ? 'none' : '0 2px 8px rgba(22,163,74,0.3)'};transition:all 0.15s"
+            ${wz.passengers.length > 0 ? 'onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'"' : ''}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            + Añadir vehículo
           </button>
         </div>
         <span class="error-msg" id="e-vehicles-general" style="display:block;margin-bottom:6px"></span>
@@ -1496,6 +1580,20 @@ function checkFrequentPassengerDuplicate(value) {
   if (numdocInp) numdocInp.classList.toggle('is-frequent-dup', exists);
 }
 
+function updateVehicleCountBanner() {
+  const banner = $('veh-count-banner');
+  const text = $('veh-count-text');
+  if (!banner) return;
+  const wz = state.bookingWizard;
+  const n = wz?.vehicles?.length || 0;
+  if (n === 0) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'flex';
+    if (text) text.innerHTML = `<strong>${n} vehículo${n === 1 ? '' : 's'}</strong> añadido${n === 1 ? '' : 's'} a esta reserva`;
+  }
+}
+
 function showVehicleForm(passengerIndex) {
   const wz = state.bookingWizard;
   if (!wz) return;
@@ -1523,6 +1621,7 @@ function showVehicleForm(passengerIndex) {
   if (hint) hint.style.display = 'none';
   const genErr = $('e-vehicles-general');
   if (genErr) { genErr.textContent = ''; genErr.classList.remove('visible'); }
+  updateVehicleCountBanner();
 }
 
 function tryAddVehicle() {
@@ -1564,6 +1663,7 @@ function hideVehicleSection() {
   if (section) section.style.display = 'none';
   const hint = $('no-vehicles-hint');
   if (hint) hint.style.display = 'block';
+  updateVehicleCountBanner();
 }
 
 function removeWizPassenger(idx) {
@@ -2116,6 +2216,7 @@ function removeVehicleBlock(idx) {
   }
   wz._vehicleCount = wz.vehicles.length;
   showVehicleForm();
+  updateVehicleCountBanner();
 }
 
 function wizStep4Submit(e) {

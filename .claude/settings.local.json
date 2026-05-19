@@ -7,7 +7,8 @@
       "Bash(powershell *)",
       "Bash(python fix_vehicles.py)",
       "Bash(python3 *)",
-      "Bash(del fix_vehicles.py)"
+      "Bash(del fix_vehicles.py)",
+      "Bash(del *)"
     ]
   }
 }
