@@ -1249,16 +1249,16 @@ function renderFpChips(list, query) {
     ? list.filter(p => `${p.nombre} ${p.apellido1} ${p.apellido2||''} ${p.numDoc} ${p.email||''}`.toLowerCase().includes(q))
     : list;
   if (!filtered.length) {
-    return `<div style="text-align:center;padding:12px;color:#9a3412;font-size:0.8rem;font-style:italic">Sin resultados para "${esc(query)}"</div>`;
+    return `<div style="text-align:center;padding:12px;color:#1e3a8a;font-size:0.8rem;font-style:italic">Sin resultados para "${esc(query)}"</div>`;
   }
   return filtered.map((p, i) => {
     const realIdx = list.indexOf(p);
     const isMember = p._source === 'miembro';
-    const avatarBg = isMember ? '#0369a1' : '#ea580c';
-    const chipBorder = isMember ? '#bae6fd' : '#fed7aa';
-    const chipHoverBg = isMember ? '#e0f2fe' : '#ffedd5';
-    const chipHoverBorder = isMember ? '#0ea5e9' : '#f97316';
-    const badgeBg = isMember ? '#0369a1' : '#ea580c';
+    const avatarBg = isMember ? '#1d4ed8' : '#0284c7';
+    const chipBorder = isMember ? '#bfdbfe' : '#bae6fd';
+    const chipHoverBg = isMember ? '#dbeafe' : '#e0f2fe';
+    const chipHoverBorder = isMember ? '#3b82f6' : '#0ea5e9';
+    const badgeBg = isMember ? '#1d4ed8' : '#0284c7';
     const badgeLabel = isMember ? 'Miembro' : 'Frecuente';
     const initials = (esc(p.nombre[0]||'')+esc((p.apellido1||'')[0]||'')).toUpperCase();
     return `<button type="button" onclick="selectMergedFp(${realIdx})"
@@ -1324,8 +1324,8 @@ function showWizStep3() {
   if (!content) return;
   // Lista de pasajeros añadidos con sus vehículos
   const paxListHtml = wz.passengers.length > 0 ? `
-    <div class="pax-list-container" style="margin-bottom:24px;padding:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--radius)">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:700;font-size:0.875rem;color:#c2410c">
+    <div class="pax-list-container" style="margin-bottom:24px;padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:700;font-size:0.875rem;color:#1e40af">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Pasajeros añadidos (${wz.passengers.length})
       </div>
@@ -1333,7 +1333,7 @@ function showWizStep3() {
         ${wz.passengers.map((p, idx) => {
           const paxVehicles = (wz.vehicles || []).filter(v => v.driverPassengerIndex === idx);
           return `
-          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;background:white;border:1px solid #fed7aa;border-radius:var(--radius);gap:12px">
+          <div class="pax-item-card" style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;background:white;border:1px solid #bfdbfe;border-radius:var(--radius);gap:12px">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                 <span style="font-weight:600;font-size:0.875rem">
@@ -1403,19 +1403,19 @@ function showWizStep3() {
         const merged = getMergedFp();
         if (!merged.length) return '';
         return `
-      <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%);border:2px solid #f97316;padding:18px 20px;border-radius:var(--radius);margin-bottom:20px;box-shadow:0 4px 12px rgba(249,115,22,0.18)">
+      <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border:2px solid #3b82f6;padding:18px 20px;border-radius:var(--radius);margin-bottom:20px;box-shadow:0 4px 12px rgba(59,130,246,0.18)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.9rem;color:#c2410c">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#ea580c;border-radius:50%;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.9rem;color:#1e40af">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#2563eb;border-radius:50%;flex-shrink:0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </span>
             Pasajeros y miembros
           </div>
-          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#ea580c;color:#fff;border-radius:11px;font-size:0.7rem;font-weight:700">${merged.length}</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#2563eb;color:#fff;border-radius:11px;font-size:0.7rem;font-weight:700">${merged.length}</span>
         </div>
-        <p style="font-size:0.78rem;color:#9a3412;margin:0 0 10px;font-weight:500">Haz clic para añadir directamente · <span style="opacity:0.7">🟠 Frecuente &nbsp; 🔵 Miembro</span></p>
+        <p style="font-size:0.78rem;color:#1e40af;margin:0 0 10px;font-weight:500">Haz clic para añadir directamente · <span style="opacity:0.7">🔵 Frecuente &nbsp; 🔷 Miembro</span></p>
         <input type="text" class="form-input" id="fp-search" placeholder="Buscar por nombre, apellido o documento..." autocomplete="off"
-          style="border-color:#f97316;background:white;margin-bottom:10px"
+          style="border-color:#3b82f6;background:white;margin-bottom:10px"
           oninput="filterWizFp(this.value)">
         <div id="fp-chips-container" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto">
           ${renderFpChips(merged, '')}
@@ -1532,7 +1532,7 @@ function showWizStep3() {
             style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:${wz.passengers.length === 0 ? '#9ca3af' : '#16a34a'};color:#fff;border:none;border-radius:var(--radius);font-size:0.8125rem;font-weight:700;cursor:${wz.passengers.length === 0 ? 'not-allowed' : 'pointer'};box-shadow:${wz.passengers.length === 0 ? 'none' : '0 2px 8px rgba(22,163,74,0.3)'};transition:all 0.15s"
             ${wz.passengers.length > 0 ? `onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'"` : ''}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            + Añadir vehículo
+            Añadir vehículo
           </button>
         </div>
         <span class="error-msg" id="e-vehicles-general" style="display:block;margin-bottom:6px"></span>
