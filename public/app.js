@@ -1574,8 +1574,24 @@ function editWizPassenger(idx) {
   set('pax-tipdoc', p.tipoDoc);
   set('pax-numdoc', p.numDoc);
   set('pax-expdoc', p.expDoc);
+  // Desvincular vehículos del pasajero editado y reajustar índices
+  if (wz.vehicles) {
+    wz.vehicles.forEach(v => {
+      if (v.driverPassengerIndex === idx) {
+        v.driverPassengerIndex = -1;
+      }
+    });
+  }
   // Eliminar el pasajero original y dar feedback
   wz.passengers.splice(idx, 1);
+  // Reajustar índices de conductor tras el desplazamiento
+  if (wz.vehicles) {
+    wz.vehicles.forEach(v => {
+      if (typeof v.driverPassengerIndex === 'number' && v.driverPassengerIndex > idx) {
+        v.driverPassengerIndex--;
+      }
+    });
+  }
   showToast('info', 'Editando pasajero', 'Modifica los datos y pulsa "Añadir pasajero" para guardar.');
   // Scroll al formulario
   const form = $('wiz-pax-form');
@@ -1596,15 +1612,15 @@ async function addPassengerAction(e) {
   const expdoc  = val('pax-expdoc');
   let ok = true;
 
-  if (!nombre)           { fieldErr('e-pax-nombre','pax-nombre','Requerido'); ok=false; } else fieldOk('e-pax-nombre','pax-nombre');
-  if (!ape1)             { fieldErr('e-pax-ape1','pax-ape1','Requerido'); ok=false; } else fieldOk('e-pax-ape1','pax-ape1');
+  if (!nombre || !isName(nombre)) { fieldErr('e-pax-nombre','pax-nombre', !nombre ? 'Requerido' : 'Introduce un nombre válido.'); ok=false; } else fieldOk('e-pax-nombre','pax-nombre');
+  if (!ape1 || !isName(ape1))    { fieldErr('e-pax-ape1','pax-ape1', !ape1 ? 'Requerido' : 'Introduce un apellido válido.'); ok=false; } else fieldOk('e-pax-ape1','pax-ape1');
   if (!isEmail(email))   { fieldErr('e-pax-email','pax-email','Inválido'); ok=false; } else fieldOk('e-pax-email','pax-email');
   if (email !== email2)  { fieldErr('e-pax-email2','pax-email2','No coinciden'); ok=false; } else fieldOk('e-pax-email2','pax-email2');
   if (!tel || !isPhone(tel)) { fieldErr('e-pax-tel','pax-tel','Teléfono inválido (solo dígitos, 6-15 caracteres)'); ok=false; } else fieldOk('e-pax-tel','pax-tel');
   if (!fnac)             { fieldErr('e-pax-fnac','pax-fnac','Requerido'); ok=false; } else fieldOk('e-pax-fnac','pax-fnac');
   if (!nac)              { fieldErr('e-pax-nac','pax-nac','Requerido'); ok=false; } else fieldOk('e-pax-nac','pax-nac');
   if (!tipdoc)           { fieldErr('e-pax-tipdoc','pax-tipdoc','Requerido'); ok=false; } else fieldOk('e-pax-tipdoc','pax-tipdoc');
-  if (!numdoc)           { fieldErr('e-pax-numdoc','pax-numdoc','Requerido'); ok=false; } else fieldOk('e-pax-numdoc','pax-numdoc');
+  if (!numdoc || (tipdoc && !isDocNum(numdoc, tipdoc))) { fieldErr('e-pax-numdoc','pax-numdoc', !numdoc ? 'Requerido' : 'Introduce un número de documento válido.'); ok=false; } else fieldOk('e-pax-numdoc','pax-numdoc');
   if (!expdoc)           { fieldErr('e-pax-expdoc','pax-expdoc','Requerido'); ok=false; } else fieldOk('e-pax-expdoc','pax-expdoc');
   if (!ok) return;
 
@@ -1771,7 +1787,12 @@ function filterVehicles(idx) {
   if (!inp || !drop) return;
   const q = inp.value.trim().toLowerCase();
   const vehicles = state.vehicles || [];
+  const wz = state.bookingWizard;
+  const usedIds = wz?.vehicles
+    ? wz.vehicles.filter((veh, i) => i !== idx && veh._mode === 'registrado' && veh.registeredId).map(veh => String(veh.registeredId))
+    : [];
   const filtered = vehicles.filter(v =>
+    !usedIds.includes(String(v.id)) &&
     `${v.marca} ${v.modelo} ${v.matricula||''}`.toLowerCase().includes(q)
   );
   if (!filtered.length) {
@@ -1909,6 +1930,7 @@ function renderVehicleBlock(idx) {
         <div class="form-group">
           <label class="form-label">Matrícula</label>
           <input type="text" id="veh-mat-${idx}" class="form-input" placeholder="Ej: 1234BBB" oninput="this.value=this.value.toUpperCase()" value="${esc(v.matricula||'')}">
+          <span class="error-msg" id="e-veh-mat-${idx}"></span>
         </div>
       </div>
       <div class="form-grid-3">
@@ -1943,7 +1965,11 @@ function renderVehicleBlock(idx) {
       <label class="form-label">Conductor del vehículo <span style="color:var(--danger)">*</span></label>
       <select id="veh-driver-${idx}" class="form-input" onchange="onDriverChange(${idx},this.value)">
         <option value="-1" ${typeof v.driverPassengerIndex !== 'number' || v.driverPassengerIndex === -1 ? 'selected' : ''}>— Seleccionar conductor —</option>
-        ${wz.passengers.map((p, pIdx) => `<option value="${pIdx}" ${typeof v.driverPassengerIndex === 'number' && v.driverPassengerIndex === pIdx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}${p.apellido2 ? ' ' + esc(p.apellido2) : ''}</option>`).join('')}
+        ${wz.passengers.map((p, pIdx) => {
+          const usedByOther = wz.vehicles.some((ov, oi) => oi !== idx && ov.driverPassengerIndex === pIdx);
+          if (usedByOther) return '';
+          return `<option value="${pIdx}" ${typeof v.driverPassengerIndex === 'number' && v.driverPassengerIndex === pIdx ? 'selected' : ''}>${esc(p.nombre)} ${esc(p.apellido1)}${p.apellido2 ? ' ' + esc(p.apellido2) : ''}</option>`;
+        }).join('')}
       </select>
       <span class="error-msg" id="e-veh-driver-${idx}"></span>
     </div>
@@ -2044,6 +2070,7 @@ function wizStep4Submit(e) {
       const anc = parseFloat(v.ancho), lar = parseFloat(v.largo), alt = parseFloat(v.alto);
       if (!v.marca)  { fieldErr(`e-veh-mar-${idx}`, `veh-mar-${idx}`, 'La marca es obligatoria'); allOk = false; } else fieldOk(`e-veh-mar-${idx}`, `veh-mar-${idx}`);
       if (!v.modelo) { fieldErr(`e-veh-mod-${idx}`, `veh-mod-${idx}`, 'El modelo es obligatorio'); allOk = false; } else fieldOk(`e-veh-mod-${idx}`, `veh-mod-${idx}`);
+      if (v.matricula && !isPlate(v.matricula)) { fieldErr(`e-veh-mat-${idx}`, `veh-mat-${idx}`, 'Introduce una matrícula válida.'); allOk = false; } else fieldOk(`e-veh-mat-${idx}`, `veh-mat-${idx}`);
       if (isNaN(anc)||anc<=0) { fieldErr(`e-veh-anc-${idx}`, `veh-anc-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-anc-${idx}`, `veh-anc-${idx}`);
       if (isNaN(lar)||lar<=0) { fieldErr(`e-veh-lar-${idx}`, `veh-lar-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-lar-${idx}`, `veh-lar-${idx}`);
       if (isNaN(alt)||alt<=0) { fieldErr(`e-veh-alt-${idx}`, `veh-alt-${idx}`, 'Valor positivo requerido'); allOk = false; } else fieldOk(`e-veh-alt-${idx}`, `veh-alt-${idx}`);
@@ -3303,6 +3330,16 @@ function updatePwStrength(pw) {
 // ============================================================
 function isLocalizador(v) { return /^[A-Z0-9]{5,10}$/.test(v); }
 function isDNI(v)         { return /^[0-9]{8}[A-Za-z]$/.test(v); }
+function isNIE(v)         { return /^[XYZxyz][0-9]{7}[A-Za-z]$/.test(v); }
+function isPassport(v)    { return /^[A-Za-z0-9]{6,20}$/.test(v); }
+function isName(v)        { return v.length >= 2 && !/^\d+$/.test(v) && /^[A-Za-zÀ-ɏḀ-ỿ' \-]+$/.test(v); }
+function isPlate(v)       { const n = v.replace(/\s/g,'').toUpperCase(); return /^[0-9]{4}[A-Z]{3}$/.test(n) || /^[A-Z]{1,2}[0-9]{4}[A-Z]{2}$/.test(n); }
+function isDocNum(num, tipo) {
+  const t = (tipo || '').toUpperCase();
+  if (t === 'DNI') return isDNI(num);
+  if (t === 'NIE') return isNIE(num);
+  return isPassport(num);
+}
 function isEmail(v)       { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 function isPhone(v)       { return /^[0-9\s\-]{6,15}$/.test(v); }
 
