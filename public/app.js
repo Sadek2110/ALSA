@@ -1305,19 +1305,47 @@ function showWizStep3() {
       ${vehiclesInfoHtml}
       ${paxListHtml}
 
-      <div class="fp-section" style="background:#f5f3ff;border:1px solid #c4b5fd;padding:16px;border-radius:var(--radius);margin-bottom:24px">
-        <div class="fp-section-header" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:0.8125rem;color:#7c3aed">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-          Cargar desde Pasajeros Frecuentes
+      ${fp.length > 0 ? `
+      <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%);border:2px solid #8b5cf6;padding:18px 20px;border-radius:var(--radius);margin-bottom:20px;box-shadow:0 2px 8px rgba(139,92,246,0.12)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.9rem;color:#6d28d9">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#7c3aed;border-radius:50%;flex-shrink:0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            Pasajeros frecuentes
+          </div>
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#7c3aed;color:#fff;border-radius:11px;font-size:0.7rem;font-weight:700">${fp.length}</span>
         </div>
-        ${fp.length > 0 ? `
-        <div class="fp-select-wrap" style="position:relative">
-          <input type="text" class="form-input" id="fp-search" value="" placeholder="Escribe para buscar pasajero..." autocomplete="off"
+        <p style="font-size:0.78rem;color:#5b21b6;margin:0 0 12px;font-weight:500">
+          Haz clic en un pasajero para añadirlo directamente a la reserva
+        </p>
+        ${fp.length <= 6 ? `
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          ${fp.map((p, i) => `
+          <button type="button" onclick="selectFrequentPax(${i})"
+            style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:white;border:1.5px solid #c4b5fd;border-radius:var(--radius);cursor:pointer;font-size:0.8125rem;color:#4c1d95;font-weight:600;transition:all 0.15s;text-align:left"
+            onmouseover="this.style.background='#ede9fe';this.style.borderColor='#7c3aed'"
+            onmouseout="this.style.background='white';this.style.borderColor='#c4b5fd'">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#7c3aed;border-radius:50%;color:#fff;font-size:0.65rem;font-weight:700;flex-shrink:0">${esc(p.nombre[0]||'').toUpperCase()}${esc((p.apellido1||'')[0]||'').toUpperCase()}</span>
+            <span>
+              <span style="display:block">${esc(p.nombre)} ${esc(p.apellido1)}</span>
+              <span style="display:block;font-size:0.7rem;font-weight:400;color:#7c3aed;opacity:0.8">${esc(p.tipoDoc||'')} ${esc(p.numDoc||'')}</span>
+            </span>
+          </button>`).join('')}
+        </div>` : `
+        <div style="position:relative">
+          <input type="text" class="form-input" id="fp-search" value="" placeholder="Buscar por nombre, apellido o documento..." autocomplete="off"
+            style="border-color:#8b5cf6;background:white"
             oninput="filterFrequentPax(this)" onfocus="filterFrequentPax(this)" onblur="setTimeout(()=>hideDropdown('drop-fp'),180)">
           <div class="route-dropdown" id="drop-fp"></div>
-          <input type="hidden" id="fp-selected-idx" value="">
-        </div>` : `<p style="font-size:0.75rem;color:var(--gray-500);margin:0">No hay pasajeros frecuentes guardados.</p>`}
+        </div>`}
+        <span class="error-msg" id="e-fp-search"></span>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="flex:1;height:1px;background:var(--gray-200)"></div>
+        <span style="font-size:0.75rem;color:var(--gray-400);white-space:nowrap;font-weight:500">O añade manualmente</span>
+        <div style="flex:1;height:1px;background:var(--gray-200)"></div>
+      </div>` : ''}
 
       <form id="wiz-pax-form" onsubmit="addPassengerAction(event)" novalidate>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #dbeafe">
@@ -1326,10 +1354,7 @@ function showWizStep3() {
           </div>
           <span style="font-weight:700;font-size:0.875rem;color:#1e40af;text-transform:uppercase;letter-spacing:0.025em">Datos del nuevo pasajero</span>
         </div>
-        <div id="fp-duplicate-warn" style="display:none;margin-bottom:16px;padding:10px 14px;background:#fef9c3;border:1px solid #facc15;border-radius:var(--radius);font-size:0.8125rem;color:var(--gray-700);align-items:center;gap:8px">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Este pasajero ya existe en tu lista de pasajeros frecuentes.</span>
-        </div>
+
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
@@ -1554,7 +1579,9 @@ function removeWizPassenger(idx) {
       }
     });
   }
+  const removedName = wz.passengers[idx] ? `${wz.passengers[idx].nombre} ${wz.passengers[idx].apellido1}` : 'Pasajero';
   wz.passengers.splice(idx, 1);
+  showToast('warning', 'Pasajero eliminado', `${removedName} ha sido eliminado de la reserva.`);
   showWizStep3();
 }
 
@@ -1743,40 +1770,35 @@ function finalizePassengerStep() {
 function selectFrequentPax(idx) {
   const p = state.frequentPassengers[idx];
   if (!p) return;
-  const inp = $('fp-search');
-  if (inp) inp.value = `${p.nombre} ${p.apellido1} · ${p.numDoc}`;
-  const hid = $('fp-selected-idx');
-  if (hid) hid.value = idx;
-
-  const set = (id, v) => { const el=$(id); if(el) el.value=v||''; };
-  set('pax-nombre', p.nombre);
-  set('pax-ape1',   p.apellido1);
-  set('pax-ape2',   p.apellido2);
-  set('pax-email',  p.email);
-  set('pax-email2', p.email);
-
-  const knownPrefixes = ['+34','+1','+44','+33','+49','+39','+351'];
-  let telPrefix = '+34', telNumber = p.telefono || '';
-  for (const pre of knownPrefixes) {
-    if (telNumber.startsWith(pre + ' ') || telNumber.startsWith(pre)) {
-      telPrefix  = pre;
-      telNumber  = telNumber.slice(pre.length).trim();
-      break;
-    }
-  }
-  const preEl = $('pax-pre'); if (preEl) preEl.value = telPrefix;
-  set('pax-tel',    telNumber);
-  set('pax-fnac',   p.fnac);
-  set('pax-nac',    p.nacionalidad);
-  set('pax-tipdoc', p.tipoDoc);
-  set('pax-numdoc', p.numDoc);
-  set('pax-expdoc', p.expDoc);
-
-  checkFrequentPassengerDuplicate(p.numDoc);
-  showToast('info','Datos cargados',`Se han cargado los datos de ${p.nombre}.`);
+  const wz = state.bookingWizard;
+  if (!wz) return;
   hideDropdown('drop-fp');
-}
 
+  const errFp = $('e-fp-search');
+  if (errFp) { errFp.textContent = ''; errFp.classList.remove('visible'); }
+
+  if (wz.passengers.some(ex => ex.numDoc === p.numDoc)) {
+    if (errFp) { errFp.textContent = 'Este pasajero ya está en la reserva.'; errFp.classList.add('visible'); }
+    return;
+  }
+
+  persistAllVehicleBlocks();
+
+  const newPaxIdx = wz.passengers.length;
+  if (Array.isArray(wz.vehicles)) {
+    wz.vehicles.forEach(v => { if (v.driverPassengerIndex === -1) v.driverPassengerIndex = newPaxIdx; });
+  }
+
+  wz.passengers.push({
+    nombre: p.nombre, apellido1: p.apellido1, apellido2: p.apellido2 || '',
+    email: p.email, telefono: p.telefono,
+    fnac: p.fnac, nacionalidad: p.nacionalidad,
+    tipoDoc: p.tipoDoc, numDoc: p.numDoc, expDoc: p.expDoc,
+  });
+
+  showToast('success', 'Pasajero añadido', `${p.nombre} ${p.apellido1} añadido a la reserva.`);
+  showWizStep3();
+}
 function filterFrequentPax() {
   const inp = $('fp-search');
   const drop = $('drop-fp');
@@ -2084,7 +2106,10 @@ function removeVehicleBlock(idx) {
   const wz = state.bookingWizard;
   if (!wz?.vehicles) return;
   persistAllVehicleBlocks();
+  const removedVeh = wz.vehicles[idx];
+  const vehLabel = removedVeh ? `${removedVeh.marca || ''} ${removedVeh.modelo || ''}`.trim() || 'Vehículo' : 'Vehículo';
   wz.vehicles.splice(idx, 1);
+  showToast('info', 'Vehículo eliminado', `${vehLabel} eliminado de la reserva.`);
   if (wz.vehicles.length === 0) {
     hideVehicleSection();
     return;
